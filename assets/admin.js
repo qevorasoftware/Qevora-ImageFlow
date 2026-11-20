@@ -75,7 +75,9 @@
             if (data.row) {
                 const row = panel.querySelector('[data-attachment="'+Number(data.row.id)+'"]');
                 if (row) for (const key of ['formats','status','detail']) {
-                    row.querySelector('[data-result="'+key+'"]').textContent = data.row[key];
+                    const cell = row.querySelector('[data-result="'+key+'"]');
+                    cell.textContent = key === 'detail' ? data.row[key].replace(/\s*·\s*$/, '') : data.row[key];
+                    if (key === 'status') cell.setAttribute('data-state', data.row.status);
                 }
             }
             status.textContent='Queue '+data.state+(data.targets?.length?' · Output '+data.targets.join(' + ').toUpperCase():'')+' · '+data.done+' / '+data.total+' processed · '+(data.converted||0)+' converted · '+(data.skipped||0)+' skipped · '+(data.failed||0)+' failed · '+(data.saved||0)+' bytes saved. '+(data.last||'');

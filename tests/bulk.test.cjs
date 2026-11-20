@@ -47,6 +47,7 @@ test('live progress updates a row and refreshes the filtered list at completion'
     field('#qif-scope').value='selected';
     field('#qif-results').dataset={view:'bulk'};
     field('[data-attachment="42"]').querySelector=field;
+    field('[data-result="status"]').setAttribute=(key,value)=>{field('[data-result="status"]')[key]=value;};
     const timers=[],calls=[];
     const job=(state,done)=>({state,done,total:2,converted:done});
     const replies=[job('running',0),{...job('running',1),row:{id:42,status:'converted',formats:'WEBP',detail:'saved'}},job('complete',2),{html:'<div id="qif-results">Updated</div>'}];
@@ -58,6 +59,7 @@ test('live progress updates a row and refreshes the filtered list at completion'
     await new Promise(setImmediate);
     await timers.shift()();
     assert.equal(field('#qif-meter').value,50);
+    assert.equal(field('[data-result="status"]')['data-state'],'converted');
     assert.equal(field('[data-result="formats"]').textContent,'WEBP');
     await timers.shift()();
     assert.equal(field('#qif-meter').value,100);

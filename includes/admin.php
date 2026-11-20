@@ -10,8 +10,8 @@ add_action('admin_menu',function () {
 });
 add_action('admin_enqueue_scripts',function () {
     if (strpos(get_current_screen()->id,'qif-')===false) { return; }
-    wp_enqueue_style('qif-admin',QIF_URL.'assets/admin.css',array(),'1.0.2');
-    wp_enqueue_script('qif-admin',QIF_URL.'assets/admin.js',array(),'1.0.2',true);
+    wp_enqueue_style('qif-admin',QIF_URL.'assets/admin.css',array(),'1.0.3');
+    wp_enqueue_script('qif-admin',QIF_URL.'assets/admin.js',array(),'1.0.3',true);
     wp_localize_script('qif-admin','qifAdmin',array('nonce'=>wp_create_nonce('qif_admin')));
 });
 add_action('admin_init',function () { register_setting('qif','qif_settings',array('sanitize_callback'=>__NAMESPACE__.'\\sanitize')); });
@@ -58,8 +58,8 @@ function output_labels($id) {
 }
 function bulk_form() {
     $s=settings();
-    echo '<section><h2>1. Choose images</h2><label>Process <select id="qif-scope"><option value="selected">Checked images</option><option value="start">All eligible images in the library</option><option value="retry">Failed eligible images</option><option value="force">Force reconvert checked images</option></select></label>';
-    echo '<p>Enabled source formats: '.esc_html(strtoupper(implode(', ',$s['sources']))).'. List filters help you find images to check.</p>';
+    echo '<section><h2>1. Choose images</h2><label>Images to convert <select id="qif-scope"><option value="selected">Checked images</option><option value="start">All eligible images in the library</option><option value="retry">Failed eligible images</option><option value="force">Force reconvert checked images</option></select></label>';
+    echo '<p>Enabled source formats: '.esc_html(strtoupper(implode(', ',$s['sources']))).'.</p>';
     media_rows('bulk');
     echo '</section><section><h2>2. Choose output formats</h2><fieldset id="qif-targets"><legend>Convert images to</legend>';
     foreach (outputs() as $format) {
@@ -85,15 +85,34 @@ function media_rows($key) {
     if (preg_match('/^(\d{4})-(0[1-9]|1[0-2])$/',$month,$parts)) { $args['date_query']=array(array('year'=>(int)$parts[1],'month'=>(int)$parts[2])); }
     if ($key==='logs' && !$state) { $args['meta_key']='_qif_detail'; }
     $query=new \WP_Query($args);
-    echo '<div id="qif-results" data-view="'.esc_attr($key).'"><form method="get"><input type="hidden" name="page" value="qif-'.esc_attr($key).'"><select aria-label="Source format" name="fmt"><option value="">All formats</option>';
+    $filtered = $mime || $state || $month;
+    echo '<div id="qif-results" class="qif-library" data-view="'.esc_attr($key).'">';
+    echo '<div class="qif-list-title"><h3>'; h('Image list'); echo '</h3><span>'.esc_html(number_format_i18n($query->found_posts)).' '.esc_html(_n('image','images',$query->found_posts,'qevora-imageflow')).'</span></div>';
+    echo '<details class="qif-filters" '.($filtered ? 'open' : '').'><summary>'; h('Filter image list'); echo '</summary>';
+    echo '<form method="get" action="'.esc_url(admin_url('admin.php')).'"><input type="hidden" name="page" value="qif-'.esc_attr($key).'">';
+    echo '<label>Original format<select name="fmt"><option value="">All formats</option>';
     foreach (formats() as $k=>$val) { echo '<option '.selected($mime,$k,false).' value="'.esc_attr($k).'">'.esc_html(strtoupper($k)).'</option>'; }
-    echo '</select> <select aria-label="Conversion state" name="state"><option value="">All states</option>';
-    foreach (array('converted','failed','skipped') as $k) { echo '<option '.selected($state,$k,false).'>'.esc_html($k).'</option>'; }
-    echo '</select> <input type="month" aria-label="Upload month" name="month" value="'.esc_attr($month).'"> <button class="button">Filter list</button></form><table class="widefat striped"><thead><tr><th><input type="checkbox" aria-label="Select visible page" id="qif-all"></th><th>Attachment</th><th>Original format</th><th>Generated formats</th><th>Status</th><th>Last result</th></tr></thead><tbody>';
+    echo '</select></label><label>Conversion status<select name="state"><option value="">Any status</option>';
+    foreach (array('converted','failed','skipped') as $k) { echo '<option value="'.esc_attr($k).'" '.selected($state,$k,false).'>'.esc_html(ucfirst($k)).'</option>'; }
+    echo '</select></label><label>Uploaded in<input type="month" name="month" value="'.esc_attr($month).'"></label><button class="button">Apply filters</button>';
+    if ($filtered) { echo '<a href="'.esc_url(page_url($key)).'">Clear filters</a>'; }
+    echo '</form></details><div class="qif-list-scroll" tabindex="0" role="region" aria-label="Image list"><table class="qif-list-table"><thead><tr><th><input type="checkbox" aria-label="Select visible page" id="qif-all"></th><th>Image</th><th>Original</th><th>Generated</th><th>Status</th><th>Last result (UTC)</th></tr></thead><tbody>';
     foreach ($query->posts as $p) {
-        echo '<tr data-attachment="'.intval($p->ID).'"><td><input class="qif-id" type="checkbox" aria-label="Select attachment '.intval($p->ID).'" value="'.intval($p->ID).'"></td><td><a href="'.esc_url(get_edit_post_link($p->ID)).'">'.esc_html($p->post_title ?: '#'.$p->ID).'</a></td><td>'.esc_html(strtoupper(str_replace('image/','',get_post_mime_type($p->ID)))).'</td><td data-result="formats">'.esc_html(output_labels($p->ID) ?: '—').'</td><td data-result="status">'.esc_html(get_post_meta($p->ID,'_qif_status',true) ?: 'pending').'</td><td data-result="detail">'.esc_html(get_post_meta($p->ID,'_qif_detail',true)).'</td></tr>';
+        $id=$p->ID;
+        $status=get_post_meta($id,'_qif_status',true) ?: 'pending';
+        $detail=rtrim((string)get_post_meta($id,'_qif_detail',true)," ·");
+        $title=$p->post_title ?: '#'.$id;
+        $thumb=wp_get_attachment_image($id,'thumbnail',false,array('class'=>'qif-thumbnail','alt'=>'','loading'=>'lazy'));
+        echo '<tr data-attachment="'.absint($id).'"><td><input class="qif-id" type="checkbox" aria-label="'.esc_attr('Select '.$title).'" value="'.absint($id).'"></td>';
+        echo '<td><a class="qif-image-link" href="'.esc_url(get_edit_post_link($id)).'">'.$thumb.'<span>'.esc_html($title).'</span></a></td>';
+        echo '<td>'.esc_html(strtoupper(str_replace('image/','',get_post_mime_type($id)))).'</td><td><span class="qif-output" data-result="formats">'.esc_html(output_labels($id) ?: '—').'</span></td>';
+        echo '<td><span class="qif-state" data-state="'.esc_attr($status).'" data-result="status">'.esc_html($status).'</span></td><td data-result="detail">'.esc_html($detail ?: '—').'</td></tr>';
     }
-    echo '</tbody></table>'; echo wp_kses_post(paginate_links(array('base'=>add_query_arg(array('paged'=>'%#%','fmt'=>$mime,'state'=>$state,'month'=>$month),page_url($key)),'format'=>'','total'=>$query->max_num_pages,'current'=>$page))); echo '</div>';
+    if (!$query->posts) { echo '<tr><td colspan="6" class="qif-empty">No images match this list.</td></tr>'; }
+    echo '</tbody></table></div>';
+    $links=paginate_links(array('base'=>add_query_arg(array('paged'=>'%#%','fmt'=>$mime,'state'=>$state,'month'=>$month),page_url($key)),'format'=>'','total'=>$query->max_num_pages,'current'=>$page));
+    if ($links) { echo '<div class="qif-pages">'.wp_kses_post($links).'</div>'; }
+    echo '</div>';
 }
 function stats($meta) {
     global $wpdb;
