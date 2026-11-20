@@ -71,11 +71,11 @@ function encode($src,$tmp,$from,$to,$s) {
     }
     return '';
 }
-function convert($id,$force=false) {
+function convert($id,$force=false,$config=null) {
     if (!wp_attachment_is_image($id)) { return 'skipped'; }
     try {
-        return locked($id,function ($dir) use ($id,$force) {
-            $s=settings();
+        return locked($id,function ($dir) use ($id,$force,$config) {
+            $s=$config ?? settings();
             $meta=wp_get_attachment_metadata($id);
             $main=get_attached_file($id,true);
             $files=array($main);
