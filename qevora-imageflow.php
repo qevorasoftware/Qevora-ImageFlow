@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Qevora ImageFlow
  * Description: Generate local image alternatives and deliver them in WordPress and Elementor.
- * Version: 1.0.1
+ * Version: 1.0.2
  * Requires at least: 6.4
  * Requires PHP: 7.4
  * Author: Qevora Software

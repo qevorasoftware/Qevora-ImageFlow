@@ -10,8 +10,8 @@ add_action('admin_menu',function () {
 });
 add_action('admin_enqueue_scripts',function () {
     if (strpos(get_current_screen()->id,'qif-')===false) { return; }
-    wp_enqueue_style('qif-admin',QIF_URL.'assets/admin.css',array(),'1.0.0');
-    wp_enqueue_script('qif-admin',QIF_URL.'assets/admin.js',array(),'1.0.1',true);
+    wp_enqueue_style('qif-admin',QIF_URL.'assets/admin.css',array(),'1.0.2');
+    wp_enqueue_script('qif-admin',QIF_URL.'assets/admin.js',array(),'1.0.2',true);
     wp_localize_script('qif-admin','qifAdmin',array('nonce'=>wp_create_nonce('qif_admin')));
 });
 add_action('admin_init',function () { register_setting('qif','qif_settings',array('sanitize_callback'=>__NAMESPACE__.'\\sanitize')); });
@@ -69,7 +69,11 @@ function bulk_form() {
     echo '</fieldset><p>Choose one or more formats for this batch. Settings controls the preferred format delivered to visitors.</p></section><section><h2>3. Review and convert</h2><p id="qif-review" aria-live="polite"></p>';
     button('launch','Start conversion');
     foreach (array('pause'=>'Pause','resume'=>'Resume','stop'=>'Stop') as $cmd=>$label) { button($cmd,$label); }
+    progress_meter();
     echo '<p role="status" id="qif-status"></p></section>';
+}
+function progress_meter() {
+    echo '<div id="qif-progress" hidden><label for="qif-meter">Conversion progress <strong id="qif-percent">0%</strong></label><progress id="qif-meter" value="0" max="100"></progress></div>';
 }
 function media_rows($key) {
     $page=max(1,absint($_GET['paged'] ?? 1));
@@ -81,15 +85,15 @@ function media_rows($key) {
     if (preg_match('/^(\d{4})-(0[1-9]|1[0-2])$/',$month,$parts)) { $args['date_query']=array(array('year'=>(int)$parts[1],'month'=>(int)$parts[2])); }
     if ($key==='logs' && !$state) { $args['meta_key']='_qif_detail'; }
     $query=new \WP_Query($args);
-    echo '<form method="get"><input type="hidden" name="page" value="qif-'.esc_attr($key).'"><select aria-label="Source format" name="fmt"><option value="">All formats</option>';
+    echo '<div id="qif-results" data-view="'.esc_attr($key).'"><form method="get"><input type="hidden" name="page" value="qif-'.esc_attr($key).'"><select aria-label="Source format" name="fmt"><option value="">All formats</option>';
     foreach (formats() as $k=>$val) { echo '<option '.selected($mime,$k,false).' value="'.esc_attr($k).'">'.esc_html(strtoupper($k)).'</option>'; }
     echo '</select> <select aria-label="Conversion state" name="state"><option value="">All states</option>';
     foreach (array('converted','failed','skipped') as $k) { echo '<option '.selected($state,$k,false).'>'.esc_html($k).'</option>'; }
     echo '</select> <input type="month" aria-label="Upload month" name="month" value="'.esc_attr($month).'"> <button class="button">Filter list</button></form><table class="widefat striped"><thead><tr><th><input type="checkbox" aria-label="Select visible page" id="qif-all"></th><th>Attachment</th><th>Original format</th><th>Generated formats</th><th>Status</th><th>Last result</th></tr></thead><tbody>';
     foreach ($query->posts as $p) {
-        echo '<tr><td><input class="qif-id" type="checkbox" aria-label="Select attachment '.intval($p->ID).'" value="'.intval($p->ID).'"></td><td><a href="'.esc_url(get_edit_post_link($p->ID)).'">'.esc_html($p->post_title ?: '#'.$p->ID).'</a></td><td>'.esc_html(strtoupper(str_replace('image/','',get_post_mime_type($p->ID)))).'</td><td>'.esc_html(output_labels($p->ID) ?: '—').'</td><td>'.esc_html(get_post_meta($p->ID,'_qif_status',true) ?: 'pending').'</td><td>'.esc_html(get_post_meta($p->ID,'_qif_detail',true)).'</td></tr>';
+        echo '<tr data-attachment="'.intval($p->ID).'"><td><input class="qif-id" type="checkbox" aria-label="Select attachment '.intval($p->ID).'" value="'.intval($p->ID).'"></td><td><a href="'.esc_url(get_edit_post_link($p->ID)).'">'.esc_html($p->post_title ?: '#'.$p->ID).'</a></td><td>'.esc_html(strtoupper(str_replace('image/','',get_post_mime_type($p->ID)))).'</td><td data-result="formats">'.esc_html(output_labels($p->ID) ?: '—').'</td><td data-result="status">'.esc_html(get_post_meta($p->ID,'_qif_status',true) ?: 'pending').'</td><td data-result="detail">'.esc_html(get_post_meta($p->ID,'_qif_detail',true)).'</td></tr>';
     }
-    echo '</tbody></table>'; echo wp_kses_post(paginate_links(array('base'=>add_query_arg('paged','%#%'),'format'=>'','total'=>$query->max_num_pages,'current'=>$page)));
+    echo '</tbody></table>'; echo wp_kses_post(paginate_links(array('base'=>add_query_arg(array('paged'=>'%#%','fmt'=>$mime,'state'=>$state,'month'=>$month),page_url($key)),'format'=>'','total'=>$query->max_num_pages,'current'=>$page))); echo '</div>';
 }
 function stats($meta) {
     global $wpdb;
@@ -118,7 +122,7 @@ function page() {
     } elseif ($key==='bulk') { bulk_form(); }
     else {
         echo '<section>';
-        if ($key==='media') { button('selected','Convert selected'); button('restore','Remove selected derivatives'); }
+        if ($key==='media') { progress_meter(); button('selected','Convert selected'); button('restore','Remove selected derivatives'); }
         if ($key==='logs') { button('original','Restore original delivery'); button('export','Export settings'); button('clear','Clear log messages'); }
         media_rows($key); echo '</section>';
     }
@@ -165,6 +169,9 @@ function queue($cmd,$ids,$requested=null) {
     }
     if ($cmd!=='status') { update_option('qif_job',$job,false); }
     $job['targets']=$job['config']['targets'] ?? array();
+    if (!empty($id) && isset($result) && $result!=='busy') {
+        $job['row']=array('id'=>$id,'formats'=>output_labels($id) ?: '—','status'=>$result,'detail'=>get_post_meta($id,'_qif_detail',true));
+    }
     unset($job['ids'],$job['config']); return $job;
 }
 function queue_where($job) {
@@ -182,6 +189,13 @@ add_action('wp_ajax_qif_action',function () {
     $ids=array_slice(wp_parse_id_list(wp_unslash($_POST['ids'] ?? '')),0,100);
     try {
         switch ($cmd) {
+            case 'results':
+                $view=sanitize_key($_POST['view'] ?? '');
+                if (!in_array($view,array('bulk','media','logs'),true)) { wp_send_json_error('Invalid view',400); }
+                ob_start();
+                media_rows($view);
+                wp_send_json_success(array('html'=>ob_get_clean()));
+                break;
             case 'export': wp_send_json_success(settings()); break;
             case 'original': $s=settings(); $s['delivery']=0; update_option('qif_settings',$s); $result='Original delivery enabled'; break;
             case 'clear': delete_post_meta_by_key('_qif_detail'); $result='Log messages cleared'; break;
