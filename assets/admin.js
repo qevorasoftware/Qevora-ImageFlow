@@ -93,6 +93,16 @@
         }
     }
     panel.addEventListener('click',e=>{
+        const help=e.target.closest('.qif-format-help');
+        if (help && help.classList?.contains('qif-format-help')) {
+            const expand=help.getAttribute('aria-expanded')==='false';
+            for (const control of panel.querySelectorAll('.qif-format-help')) {
+                const open=expand && control===help;
+                control.setAttribute('aria-expanded',String(open));
+                document.getElementById(control.getAttribute('aria-controls')).hidden=!open;
+            }
+            return;
+        }
         const cmd=e.target.closest('[data-qif]')?.dataset.qif;
         if(cmd) action(cmd==='launch' ? scope.value : cmd);
         if(e.target.id==='qif-all') panel.querySelectorAll('.qif-id').forEach(x=>x.checked=e.target.checked);

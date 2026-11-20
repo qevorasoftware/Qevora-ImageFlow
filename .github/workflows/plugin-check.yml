@@ -7,6 +7,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - name: Verify format help layout at narrow and wide widths
+        run: node tests/format-layout.cjs
       - name: Extract and lint the installable plugin
         run: |
           version=$(awk '/^Stable tag:/ {print $3}' readme.txt)

@@ -11,8 +11,8 @@ add_action('admin_menu',function () {
 });
 add_action('admin_enqueue_scripts',function () {
     if (strpos(get_current_screen()->id,'qif-')===false) { return; }
-    wp_enqueue_style('qif-admin',QIF_URL.'assets/admin.css',array(),'1.0.5');
-    wp_enqueue_script('qif-admin',QIF_URL.'assets/admin.js',array(),'1.0.5',true);
+    wp_enqueue_style('qif-admin',QIF_URL.'assets/admin.css',array(),'1.0.6');
+    wp_enqueue_script('qif-admin',QIF_URL.'assets/admin.js',array(),'1.0.6',true);
     wp_localize_script('qif-admin','qifAdmin',array('nonce'=>wp_create_nonce('qif_admin')));
 });
 add_action('admin_init',function () { register_setting('qif','qif_settings',array('sanitize_callback'=>__NAMESPACE__.'\\sanitize')); });
@@ -70,16 +70,26 @@ function bulk_form() {
     echo wp_kses( guidance_html('Images to convert',option_guidance('scope')), help_tags() );
     echo '<p>Enabled source formats: '.esc_html(strtoupper(implode(', ',$s['sources']))).'.</p>';
     media_rows('bulk');
-    echo '</section><section><h2>2. Choose output formats</h2><fieldset id="qif-targets"><legend>Convert images to</legend>';
-    foreach (outputs() as $format) {
-        $available=encoder($format);
-        echo '<div class="qif-help-action"><label class="qif-format"><input type="checkbox" value="'.esc_attr($format).'" '.checked($available && in_array($format,$s['targets'],true),true,false).' '.disabled(!$available,true,false).'> '.esc_html(strtoupper($format)).($available?'':' (encoder unavailable)').'</label>'.wp_kses( guidance_html(strtoupper($format),format_guidance($format,false,!$available),!$available), help_tags() ).'</div>';
-    }
-    echo '</fieldset><p>Choose one or more formats for this batch. Settings controls the preferred format delivered to visitors.</p></section><section><h2>3. Review and convert</h2><p id="qif-review" aria-live="polite"></p>';
+    echo '</section><section><h2>2. Choose output formats</h2>';
+    bulk_format_choices($s);
+    echo '<p>Choose one or more formats for this batch. Settings controls the preferred format delivered to visitors.</p></section><section><h2>3. Review and convert</h2><p id="qif-review" aria-live="polite"></p>';
     button('launch','Start conversion');
     foreach (array('pause'=>__('Pause','qevora-imageflow'),'resume'=>__('Resume','qevora-imageflow'),'stop'=>__('Stop','qevora-imageflow')) as $cmd=>$label) { button($cmd,$label); }
     progress_meter();
     echo '<p role="status" id="qif-status"></p></section>';
+}
+function bulk_format_choices($s) {
+    echo '<fieldset id="qif-targets"><legend>Convert images to</legend><div class="qif-format-options">';
+    foreach (outputs() as $format) {
+        $available=encoder($format);
+        $note_id='qif-format-help-'.$format;
+        echo '<div class="qif-format-option"><label class="qif-format"><input type="checkbox" value="'.esc_attr($format).'" '.checked($available && in_array($format,$s['targets'],true),true,false).' '.disabled(!$available,true,false).'> '.esc_html(strtoupper($format)).($available?'':' (encoder unavailable)').'</label>';
+        echo '<button type="button" class="qif-format-help" aria-expanded="false" aria-controls="'.esc_attr($note_id).'">'.esc_html($available ? __('How it works','qevora-imageflow') : __('Why is this unavailable?','qevora-imageflow')).'<span class="screen-reader-text"> — '.esc_html(strtoupper($format)).'</span></button></div>';
+    }
+    echo '</div></fieldset>';
+    foreach (outputs() as $format) {
+        echo '<div class="qif-format-note" id="qif-format-help-'.esc_attr($format).'" hidden><strong>'.esc_html(strtoupper($format)).'</strong><p>'.esc_html(format_guidance($format,false,!encoder($format))).'</p></div>';
+    }
 }
 function progress_meter() {
     echo '<div id="qif-progress" hidden><label for="qif-meter">Conversion progress <strong id="qif-percent">0%</strong></label><progress id="qif-meter" value="0" max="100"></progress></div>';
