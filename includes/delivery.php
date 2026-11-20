@@ -7,6 +7,8 @@ function variant($rel) {
     $id=(int)get_option('qif_url_'.md5($rel));
     if (!$id) { return null; }
     $map=get_post_meta($id,'_qif_map',true);
+    $s['rules']=workflow_options()['rules'];
+    if ($s['rules']) { $s=size_config($s,registered_sources($id)[$rel] ?? ''); }
     $v=$map[$rel][$s['preferred']] ?? null;
     if (!$v || !in_array($s['preferred'],$s['targets'],true)) { return null; }
     $path='qevora-imageflow/'.$id.'/'.basename($v['file']);
@@ -40,6 +42,28 @@ function has_generated_files() {
 add_action('wp_enqueue_scripts',function () {
     $s=settings();
     if (!$s['delivery'] || (did_action('elementor/loaded') && !$s['elementor']) || !has_generated_files()) { return; }
-    wp_enqueue_script('qif-delivery',QIF_URL.'assets/delivery.js',array(),'1.1.0',array('strategy'=>'defer','in_footer'=>true));
+    wp_enqueue_script('qif-delivery',QIF_URL.'assets/delivery.js',array(),'1.2.0',array('strategy'=>'defer','in_footer'=>true));
     wp_localize_script('qif-delivery','qifDelivery',array('base'=>trailingslashit(wp_get_upload_dir()['baseurl']),'api'=>rest_url('qevora-imageflow/v1/resolve'),'css'=>did_action('elementor/loaded') && $s['background']));
 });
+
+function initial_image($html,$id) {
+    if (is_admin() || is_feed() || !workflow_options()['first_load'] || !settings()['delivery'] || (did_action('elementor/loaded') && !settings()['elementor']) || stripos($html,'<picture')!==false) { return $html; }
+    $tags=new \WP_HTML_Tag_Processor($html);
+    if (!$tags->next_tag('img')) { return $html; }
+    $src=$tags->get_attribute('src');
+    $set=$tags->get_attribute('srcset');
+    if (!$src || $tags->get_attribute('data-src') || $tags->get_attribute('data-srcset')) { return $html; }
+    $base=trailingslashit(wp_get_upload_dir()['baseurl']);
+    $type=''; $mapped=array();
+    foreach ($set?explode(',',$set):array($src) as $candidate) {
+        $parts=preg_split('/\s+/',trim($candidate));
+        $url=array_shift($parts);
+        if (strpos($url,$base)!==0 || count($parts)>1 || ($parts && !preg_match('/^\d+w$/D',$parts[0]))) { return $html; }
+        $alt=variant(rawurldecode(substr($url,strlen($base))));
+        if (!$alt || ($type && $type!==$alt['mime'])) { return $html; }
+        $type=$alt['mime']; $mapped[]=$alt['url'].($parts?' '.$parts[0]:'');
+    }
+    $sizes=$tags->get_attribute('sizes');
+    return '<picture data-qif-first-load="1"><source type="'.esc_attr($type).'" srcset="'.esc_attr(implode(', ',$mapped)).'"'.($sizes?' sizes="'.esc_attr($sizes).'"':'').'>'.$html.'</picture>';
+}
+add_filter('wp_get_attachment_image',__NAMESPACE__.'\initial_image',99,2);

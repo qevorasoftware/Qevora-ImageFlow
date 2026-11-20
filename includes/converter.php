@@ -74,6 +74,9 @@ function convert($id,$force=false,$config=null,$only=null) {
     try {
         return locked($id,function ($dir) use ($id,$force,$config,$only) {
             $s=$config ?? settings();
+            $s['rules']=$s['rules'] ?? workflow_options()['rules'];
+            $base_config=$s;
+            $registered=registered_sources($id);
             $meta=wp_get_attachment_metadata($id);
             $main=get_attached_file($id,true);
             $files=array($main);
@@ -89,6 +92,7 @@ function convert($id,$force=false,$config=null,$only=null) {
                 if (!$src || strpos($src,root_dir().DIRECTORY_SEPARATOR)!==0 || !is_readable($src)) { $failed=true; $notes[]='Source unavailable'; continue; }
                 $rel=wp_normalize_path(substr($src,strlen(root_dir())+1));
                 if ($only!==null && $only!==$rel) { continue; }
+                $s=size_config($base_config,$registered[$rel] ?? '');
                 $info=wp_getimagesize($src);
                 $bytes=filesize($src);
                 $from=array_search(wp_get_image_mime($src),formats(),true);
@@ -128,7 +132,7 @@ function convert($id,$force=false,$config=null,$only=null) {
                 }
             }
             foreach ($map as $variants) {
-                $v=$variants[$s['preferred']] ?? reset($variants);
+                $v=$variants[$base_config['preferred']] ?? reset($variants);
                 $before+=$v['original']; $after+=$v['bytes'];
             }
             foreach (array_diff(array_keys($old),array_keys($map)) as $rel) { delete_option('qif_url_'.md5($rel)); }

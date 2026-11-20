@@ -15,12 +15,12 @@ try {
     img.dataset.qifOriginal=src;
     let repaired=false;
     Object.defineProperty(img,'currentSrc',{get:()=>repaired?alt:src});
-    window.qifInspector={base,ajax:'mock',preferred:'webp',delivery:true,user:1};
+    window.qifInspector={base,ajax:'mock',preferred:'webp',delivery:true,user:1,budgets:[{template:42,widget:"hero",width:0,kib:1}]};
     performance.getEntriesByType=()=>[src,alt].map(name=>({name}));
     window.fetch=async(url,{body})=>{
         const action=body.get('action');
         let data;
-        if(action==='qif_inspect_paths') data={'hero.jpg':{id:7,size:'full',url:repaired?alt:'',repair:!repaired,reason:'Missing'}};
+        if(action==='qif_inspect_paths') data={'hero.jpg':{id:7,size:'full',width:1000,height:500,bytes:4000,originalBytes:8000,sizes:[{name:'thumbnail',width:200,height:100}],url:repaired?alt:'',repair:!repaired,reason:'Missing'}};
         if(action==='qif_inspect_fix'){if(body.get('id')!=='7'||body.get('path')!=='hero.jpg')throw Error('Wrong repair target');repaired=true;data='Verified preferred copy';}
         if(action==='qif_inspect_record'){const [r]=JSON.parse(body.get('items'));if(r.id!==7||!r.where.includes('Template 42'))throw Error('Wrong usage record');data='Saved';}
         return {json:async()=>({success:true,data})};
@@ -33,7 +33,7 @@ try {
        document.querySelector('details').open=true;
        await click('details button');check('Verified preferred copy');
        await click('[data-task=compare]');check('1 changes');check('Preferred');
-       await click('[data-task=scan]');check('1 with paired requests');
+       await click('[data-task=scan]');check('1 with paired requests');check('1 over budget');document.querySelector('details').open=true;check('Try thumbnail');check('Over budget');
        document.body.dataset.verified='yes';
     })().catch(e=>document.body.dataset.error=e.message);
     </script>`);

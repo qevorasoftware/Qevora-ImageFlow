@@ -13,14 +13,14 @@ add_action('admin_bar_menu',function ($bar) {
 },100);
 add_action('wp_enqueue_scripts',function () {
     if (!current_user_can('manage_options') || '1'!==(string)get_query_var('qif_inspect')) { return; }
-    wp_enqueue_style('qif-inspector',QIF_URL.'assets/inspector.css',array(),'1.1.0');
-    wp_enqueue_script('qif-inspector',QIF_URL.'assets/inspector.js',array(),'1.1.0',array('strategy'=>'defer','in_footer'=>true));
+    wp_enqueue_style('qif-inspector',QIF_URL.'assets/inspector.css',array(),'1.2.0');
+    wp_enqueue_script('qif-inspector',QIF_URL.'assets/inspector.js',array(),'1.2.0',array('strategy'=>'defer','in_footer'=>true));
     $s=settings();
     wp_localize_script('qif-inspector','qifInspector',array(
         'ajax'=>admin_url('admin-ajax.php'),'nonce'=>wp_create_nonce('qif_inspect'),
         'base'=>trailingslashit(wp_get_upload_dir()['baseurl']),'preferred'=>$s['preferred'],
         'delivery'=>(bool)($s['delivery'] && (!did_action('elementor/loaded') || $s['elementor'])),
-        'docs'=>page_url('docs'),'user'=>get_current_user_id()
+        'budgets'=>workflow_options()['budgets'],'docs'=>page_url('docs'),'user'=>get_current_user_id()
     ));
 });
 
@@ -58,12 +58,25 @@ function inspect_path($rel,$hint) {
 }
 function inspect_size($id,$rel,$size) {
     $s=settings();
+    $s['rules']=workflow_options()['rules'];
+    $s=size_config($s,$size);
     $map=get_post_meta($id,'_qif_map',true);
     $v=$map[$rel][$s['preferred']] ?? null;
     $result=array('id'=>$id,'size'=>$size,'repair'=>false,'url'=>'','reason'=>'');
     $source=root_dir().'/'.$rel;
+    $meta=wp_get_attachment_metadata($id);
+    $dims=$meta['sizes'][$size] ?? $meta;
+    $result['width']=absint($dims['width'] ?? 0);
+    $result['height']=absint($dims['height'] ?? 0);
+    $result['originalBytes']=is_file($source)?filesize($source):0;
+    $result['format']=$s['preferred'];
+    $result['sizes']=array();
+    foreach (($meta['sizes'] ?? array()) as $name=>$entry) {
+        $result['sizes'][]=array('name'=>$name,'width'=>absint($entry['width'] ?? 0),'height'=>absint($entry['height'] ?? 0));
+    }
     $output=$v?'qevora-imageflow/'.$id.'/'.basename($v['file']):'';
     if ($output && is_file(root_dir().'/'.$output) && is_file($source) && filemtime($source)===$v['mtime']) {
+        $result['bytes']=filesize(root_dir().'/'.$output);
         $result['url']=trailingslashit(wp_get_upload_dir()['baseurl']).$output;
         $result['reason']='Preferred copy available';
     } elseif (!is_file($source)) { $result['reason']='Registered source file is missing'; }
@@ -98,7 +111,7 @@ add_action('wp_ajax_qif_inspect_fix',function () {
     if (!current_user_can('edit_post',$id) || !isset($sources[$rel])) { wp_send_json_error('Unknown attachment size',400); }
     $details=inspect_size($id,$rel,$sources[$rel]);
     if (!$details['repair']) { wp_send_json_success($details['reason']); }
-    $s=settings(); $s['targets']=array($s['preferred']); $s['sizes']=array($sources[$rel]);
+    $s=settings(); $s['rules']=workflow_options()['rules']; $s=size_config($s,$sources[$rel]); $s['targets']=array($s['preferred']); $s['sizes']=array($sources[$rel]);
     $status=convert($id,false,$s,$rel);
     $verified=inspect_size($id,$rel,$sources[$rel]);
     wp_send_json_success($verified['url']?'Verified preferred copy':$status.' · '.get_post_meta($id,'_qif_detail',true));

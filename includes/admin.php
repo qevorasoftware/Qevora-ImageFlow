@@ -2,7 +2,7 @@
 namespace Qevora\ImageFlow;
 defined('ABSPATH') || exit;
 require_once __DIR__.'/admin-help.php';
-function pages() { return array('home'=>__('Dashboard','qevora-imageflow'),'settings'=>__('Settings','qevora-imageflow'),'bulk'=>__('Bulk Converter','qevora-imageflow'),'media'=>__('Media Library Tools','qevora-imageflow'),'elementor'=>__('Elementor Integration','qevora-imageflow'),'logs'=>__('Logs & Tools','qevora-imageflow'),'inspector'=>__('Page Inspector','qevora-imageflow'),'docs'=>__('Documentation','qevora-imageflow')); }
+function pages() { return array('home'=>__('Dashboard','qevora-imageflow'),'settings'=>__('Settings','qevora-imageflow'),'bulk'=>__('Bulk Converter','qevora-imageflow'),'media'=>__('Media Library Tools','qevora-imageflow'),'elementor'=>__('Elementor Integration','qevora-imageflow'),'logs'=>__('Logs & Tools','qevora-imageflow'),'inspector'=>__('Page Inspector','qevora-imageflow'),'workflow'=>__('Image Workbench','qevora-imageflow'),'docs'=>__('Documentation','qevora-imageflow')); }
 function page_url($key) { return admin_url('admin.php?page=qif-'.$key); }
 function h($str) { echo esc_html($str); }
 add_action('admin_menu',function () {
@@ -11,8 +11,9 @@ add_action('admin_menu',function () {
 });
 add_action('admin_enqueue_scripts',function () {
     if (strpos(get_current_screen()->id,'qif-')===false) { return; }
-    wp_enqueue_style('qif-admin',QIF_URL.'assets/admin.css',array(),'1.1.0');
-    wp_enqueue_script('qif-admin',QIF_URL.'assets/admin.js',array(),'1.1.0',true);
+    wp_enqueue_style('qif-admin',QIF_URL.'assets/admin.css',array(),'1.2.0');
+    wp_enqueue_script('qif-admin',QIF_URL.'assets/admin.js',array(),'1.2.0',true);
+    wp_enqueue_script('qif-workbench',QIF_URL.'assets/workbench.js',array('qif-admin'),'1.2.0',true);
     wp_localize_script('qif-admin','qifAdmin',array('nonce'=>wp_create_nonce('qif_admin')));
 });
 add_action('admin_init',function () { register_setting('qif','qif_settings',array('sanitize_callback'=>__NAMESPACE__.'\\sanitize')); });
@@ -72,6 +73,7 @@ function bulk_form() {
     media_rows('bulk');
     echo '</section><section><h2>2. Choose output formats</h2>';
     bulk_format_choices($s);
+    sample_controls();
     echo '<p>Choose one or more formats for this batch. Settings controls the preferred format delivered to visitors.</p></section><section><h2>3. Review and convert</h2><p id="qif-review" aria-live="polite"></p>';
     button('launch','Start conversion');
     foreach (array('pause'=>__('Pause','qevora-imageflow'),'resume'=>__('Resume','qevora-imageflow'),'stop'=>__('Stop','qevora-imageflow')) as $cmd=>$label) { button($cmd,$label); }
@@ -160,7 +162,7 @@ function page() {
     echo '<div class="wrap qif"><header class="qif-brand"><img class="qif-brand-mark" src="'.esc_url(QIF_URL.'assets/qevora-mark.png').'" alt=""><div class="qif-brand-type"><span>Qevora Software</span><h1>ImageFlow</h1></div></header><nav>';
     foreach (pages() as $k=>$title) { echo '<a '.($k===$key?'aria-current="page"':'').' href="'.esc_url(page_url($k)).'">'; h($title); echo '</a>'; }
     echo '</nav><h2 class="qif-title">'; h(pages()[$key] ?? 'Dashboard'); echo '</h2>'; if ($key!=='bulk') { echo '<p role="status" id="qif-status"></p>'; }
-    if ($key==='docs') {
+    if ($key==='workflow') { workflow_screen(); } elseif ($key==='docs') {
         require __DIR__.'/../docs/guide.html';
     } elseif ($key==='inspector') {
         echo '<section><h2>Inspect a published page</h2><p>Open any frontend page while signed in, then choose <strong>Inspect page images</strong> in the WordPress toolbar. Open the widget or popup you want to inspect and select <strong>Scan viewport</strong>.</p>';
@@ -193,7 +195,7 @@ function diagnostics() {
     foreach (array('Imagick'=>class_exists('Imagick')?'Available':'Unavailable','GD'=>extension_loaded('gd')?'Available':'Unavailable','WebP encoder'=>encoder('webp')?'Available':'Unavailable','AVIF encoder'=>encoder('avif')?'Available':'Unavailable','Elementor'=>defined('ELEMENTOR_VERSION')?ELEMENTOR_VERSION:'Inactive','Upload limit'=>size_format(wp_max_upload_size()),'PHP memory'=>ini_get('memory_limit')) as $k=>$v) { echo '<dt>'.esc_html($k).'</dt><dd>'.esc_html($v).'</dd>'; }
     echo '</dl></section>';
 }
-function queue($cmd,$ids,$requested=null) {
+function queue($cmd,$ids,$requested=null,$quality=array()) {
     $job=get_option('qif_job',array('state'=>'idle','done'=>0,'total'=>0));
     if (in_array($cmd,array('start','selected','force','retry'),true)) {
         if ($job['state']==='running' || $job['state']==='paused') { throw new \RuntimeException('Stop the current job first.'); }
@@ -201,6 +203,8 @@ function queue($cmd,$ids,$requested=null) {
         if ($list && !$ids) { throw new \RuntimeException('Select at least one attachment.'); }
         $job=array('mode'=>$cmd,'ids'=>$ids,'cursor'=>0,'state'=>'running','done'=>0,'converted'=>0,'skipped'=>0,'failed'=>0,'saved'=>0,'last'=>'');
         $config=settings();
+        $config['rules']=workflow_options()['rules'];
+        foreach ($quality as $format=>$value) { $config[$format]=$value; }
         $targets=$requested===null ? $config['targets'] : $requested;
         if (!is_array($targets) || !$targets || array_diff($targets,array_filter(outputs(),__NAMESPACE__.'\\encoder'))) {
             throw new \RuntimeException('Choose at least one available output format.');
@@ -260,6 +264,8 @@ add_action('wp_ajax_qif_action',function () {
     if (!current_user_can('manage_options')) { wp_send_json_error('Access denied',403); }
     $cmd=sanitize_key($_POST['cmd'] ?? '');
     $ids=array_slice(wp_parse_id_list(wp_unslash($_POST['ids'] ?? '')),0,100);
+    $quality=array();
+    foreach (array('webp','avif') as $format) { if (isset($_POST[$format])) { $quality[$format]=max(1,min(100,absint($_POST[$format]))); } }
     $requested=isset($_POST['targets']) ? explode(',',sanitize_text_field(wp_unslash($_POST['targets']))) : null;
     try {
         switch ($cmd) {
@@ -286,7 +292,7 @@ add_action('wp_ajax_qif_action',function () {
                 $result=array();
                 foreach ($ids as $id) { if (wp_attachment_is_image($id)) { $result[]='#'.$id.' '.remove_files($id); } }
                 $result=implode(', ',$result); break;
-            default: $result=locked(0,function () use ($cmd,$ids,$requested) { return queue($cmd,$ids,$requested); });
+            default: $result=locked(0,function () use ($cmd,$ids,$requested,$quality) { return queue($cmd,$ids,$requested,$quality); });
         }
         wp_send_json_success($result);
     } catch (\RuntimeException $e) { wp_send_json_error($e->getMessage(),400); }

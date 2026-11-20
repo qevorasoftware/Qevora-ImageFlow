@@ -3,7 +3,7 @@ Tags: images, webp, avif, elementor, optimization
 Requires at least: 6.4
 Requires PHP: 7.4
 Tested up to: 7.1
-Stable tag: 1.1.0
+Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -25,6 +25,8 @@ WordPress continues serving the original attachments. Metadata, settings and der
 See README.md and tests/acceptance.md in the package.
 
 == Changelog ==
+= 1.2.0 =
+* Added sample encoding comparisons, responsive size advice, Elementor template trials, initial HTML delivery, template budgets and size-specific conversion rules.
 = 1.1.0 =
 * Inspect rendered images and CSS backgrounds, explain missing alternatives, repair registered sizes, review paired requests and recent usage, and compare viewport baselines.
 * Added an in-plugin documentation page.

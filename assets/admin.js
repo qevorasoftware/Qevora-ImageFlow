@@ -58,7 +58,11 @@
         const ids=[...panel.querySelectorAll('.qif-id:checked')].map(x=>x.value);
         try {
             const body=new URLSearchParams({action:'qif_action',_ajax_nonce:qifAdmin.nonce,cmd,ids:ids.join(',')});
-            if (scope && ['start','selected','retry','force'].includes(cmd)) body.set('targets',targets().join(','));
+            if (scope && ['start','selected','retry','force'].includes(cmd)) {
+                body.set('targets',targets().join(','));
+                const sample=panel.querySelector('#qif-targets')?.dataset;
+                if(sample?.sampleFormat && targets().includes(sample.sampleFormat)) body.set(sample.sampleFormat,sample.sampleQuality);
+            }
             if(cmd==='restore'){
                 const preview=new URLSearchParams(body); preview.set('cmd','review_restore');
                 const response=await fetch(ajaxurl,{method:'POST',body:preview});

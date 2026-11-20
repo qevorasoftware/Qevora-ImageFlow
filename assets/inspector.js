@@ -6,7 +6,7 @@
     const pageURL=new URL(location.href);
     pageURL.searchParams.delete('qif_inspect');
     pageURL.hash='';
-    const page=pageURL.pathname+['p','page_id','preview_id'].filter(k=>pageURL.searchParams.has(k)).map(k=>' '+k+'='+pageURL.searchParams.get(k)).join('');
+    const page=pageURL.pathname+['p','page_id','preview_id','qif_trial'].filter(k=>pageURL.searchParams.has(k)).map(k=>' '+k+'='+pageURL.searchParams.get(k)).join('');
     let picking=false, working=false, records=[], scannedWidth=0;
     function el(tag,text) { const n=document.createElement(tag); n.textContent=text; return n; }
     function abs(src) { try { return src?new URL(src,document.baseURI).href:''; } catch { return ''; } }
@@ -65,11 +65,31 @@
         const missing=sources.filter(s=>s.info.repair);
         let reason=optimized?'Preferred copy observed':info.reason || 'No verified Media Library match';
         if (!cfg.delivery) reason='Frontend delivery is disabled in Settings';
+        else if (item.image && item.node.closest('picture[data-qif-first-load]')) reason=optimized?'Optimized source selected from initial HTML':'Initial HTML included an optimized source; browser selected another candidate';
         else if (item.image && item.node.closest('picture')) reason='Existing picture element controls delivery';
         else if (!optimized && missing.length) reason=missing[0].info.reason;
         else if (!item.image && !delivered) reason='CSS candidates visible; selected request is unconfirmed';
         else if (!optimized && info.url) reason='Preferred copy exists; browser selection has not been verified';
-        return {where:item.where,box:item.box,source:chosen?.url || item.source,delivered,id:info.id || sources.find(s=>s.info.id)?.info.id || 0,
+        const rect=item.node.getBoundingClientRect();
+        const needed=Math.ceil(rect.width*devicePixelRatio);
+        const measured=optimized || delivered===chosen?.url;
+        let advice='Selected file dimensions could not be confirmed';
+        if(measured && item.image && info.width && info.height){
+            const required=Math.max(needed,Math.ceil(rect.height*devicePixelRatio*info.width/info.height));
+            const options=(info.sizes || []).filter(v=>v.width>=required && v.width<info.width && Math.abs(v.width/v.height-info.width/info.height)<0.025).sort((a,b)=>a.width-b.width);
+            advice='Selected '+info.width+'px · approximately '+required+'px needed at '+devicePixelRatio+'×';
+            if(options.length) advice+=' · Try '+options[0].name+' ('+options[0].width+'px) in this widget';
+        }
+        const template=item.node.closest('[data-elementor-id]')?.dataset.elementorId;
+        const widget=item.node.closest('[data-id]')?.dataset.id;
+        const limits=(cfg.budgets || []).filter(b=>String(b.template)===template && (!b.widget || b.widget===widget) && (!b.width || innerWidth<=b.width));
+        const bytes=optimized?info.bytes:measured?info.originalBytes:0;
+        let budget='No budget for this template and viewport';
+        if(limits.length){
+            const cap=Math.min(...limits.map(b=>b.kib));
+            budget=bytes?((bytes>cap*1024?'Over budget':'Within budget')+' · '+Math.ceil(bytes/1024)+' / '+cap+' KiB'):'File size unconfirmed · budget '+cap+' KiB';
+        }
+        return {advice,budget,overBudget:!!(limits.length && bytes>Math.min(...limits.map(b=>b.kib))*1024),where:item.where,box:item.box,source:chosen?.url || item.source,delivered,id:info.id || sources.find(s=>s.info.id)?.info.id || 0,
             reason,missing,pairs,kind:item.image?'Image':'Background',state:optimized?'Preferred':delivered?'Original or other':'Unconfirmed'};
     }
     function breakpoint() {
@@ -83,11 +103,11 @@
         const d=document.createElement('details'), title=el('summary',record.where+' · '+record.state);
         d.append(title);
         const dl=document.createElement('dl');
-        for(const [k,v] of Object.entries({'Element':record.kind,'Viewport':breakpoint(),'Displayed size':record.box,'Original candidate':record.source,'Observed URL':record.delivered || 'Unconfirmed','Finding':record.reason,
+        for(const [k,v] of Object.entries({'Element':record.kind,'Viewport':breakpoint(),'Displayed size':record.box,'Original candidate':record.source,'Observed URL':record.delivered || 'Unconfirmed','Finding':record.reason,'Size advisor':record.advice,'Image budget':record.budget,
             'Original + alternative requests':record.pairs.length?record.pairs.map(p=>p.url+' → '+p.info.url).join('\n'):'No matching pair observed'})) dl.append(el('dt',k),el('dd',v));
         d.append(dl);
         for(const m of record.missing) {
-            const btn=el('button','Generate missing '+m.info.size+' · '+cfg.preferred.toUpperCase());
+            const btn=el('button','Generate missing '+m.info.size+' · '+(m.info.format || cfg.preferred).toUpperCase());
             btn.addEventListener('click',async()=>{
                 btn.disabled=true;
                 try { const message=await api('fix',{id:m.info.id,path:relative(m.url)}); status.textContent=message; }
@@ -116,7 +136,7 @@
             const saved=await api('record',{page,width,items:JSON.stringify(rows.filter(r=>r.id).map(({id,where})=>({id,where})))});
             if(saved==='busy') throw Error('Scan displayed. Usage history is busy; scan again to save.');
         }
-        status.textContent=rows.length+' image or background observations · '+breakpoint()+' · '+rows.filter(r=>r.pairs.length).length+' with paired requests';
+        status.textContent=rows.length+' image or background observations · '+breakpoint()+' · '+rows.filter(r=>r.pairs.length).length+' with paired requests · '+rows.filter(r=>r.overBudget).length+' over budget';
     }
     function key(){return ['qif-baseline',cfg.user,page,innerWidth,devicePixelRatio].join('|');}
     function snapshot(){
