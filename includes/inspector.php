@@ -13,8 +13,8 @@ add_action('admin_bar_menu',function ($bar) {
 },100);
 add_action('wp_enqueue_scripts',function () {
     if (!current_user_can('manage_options') || '1'!==(string)get_query_var('qif_inspect')) { return; }
-    wp_enqueue_style('qif-inspector',QIF_URL.'assets/inspector.css',array(),'1.2.0');
-    wp_enqueue_script('qif-inspector',QIF_URL.'assets/inspector.js',array(),'1.2.0',array('strategy'=>'defer','in_footer'=>true));
+    wp_enqueue_style('qif-inspector',QIF_URL.'assets/inspector.css',array(),'1.3.0');
+    wp_enqueue_script('qif-inspector',QIF_URL.'assets/inspector.js',array(),'1.3.0',array('strategy'=>'defer','in_footer'=>true));
     $s=settings();
     wp_localize_script('qif-inspector','qifInspector',array(
         'ajax'=>admin_url('admin-ajax.php'),'nonce'=>wp_create_nonce('qif_inspect'),

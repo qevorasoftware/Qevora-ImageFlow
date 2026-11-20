@@ -39,3 +39,4 @@ try {
     }
 } finally { rmSync(dir,{recursive:true,force:true}); }
 require('./inspector.cjs');
+require('./media-audit.cjs');

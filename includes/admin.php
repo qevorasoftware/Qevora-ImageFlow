@@ -2,7 +2,7 @@
 namespace Qevora\ImageFlow;
 defined('ABSPATH') || exit;
 require_once __DIR__.'/admin-help.php';
-function pages() { return array('home'=>__('Dashboard','qevora-imageflow'),'settings'=>__('Settings','qevora-imageflow'),'bulk'=>__('Bulk Converter','qevora-imageflow'),'media'=>__('Media Library Tools','qevora-imageflow'),'elementor'=>__('Elementor Integration','qevora-imageflow'),'logs'=>__('Logs & Tools','qevora-imageflow'),'inspector'=>__('Page Inspector','qevora-imageflow'),'workflow'=>__('Image Workbench','qevora-imageflow'),'docs'=>__('Documentation','qevora-imageflow')); }
+function pages() { return array('home'=>__('Dashboard','qevora-imageflow'),'settings'=>__('Settings','qevora-imageflow'),'bulk'=>__('Bulk Converter','qevora-imageflow'),'media'=>__('Media Library Tools','qevora-imageflow'),'elementor'=>__('Elementor Integration','qevora-imageflow'),'logs'=>__('Logs & Tools','qevora-imageflow'),'inspector'=>__('Page Inspector','qevora-imageflow'),'audit'=>__('Media Size Report','qevora-imageflow'),'workflow'=>__('Image Workbench','qevora-imageflow'),'docs'=>__('Documentation','qevora-imageflow')); }
 function page_url($key) { return admin_url('admin.php?page=qif-'.$key); }
 function h($str) { echo esc_html($str); }
 add_action('admin_menu',function () {
@@ -11,9 +11,9 @@ add_action('admin_menu',function () {
 });
 add_action('admin_enqueue_scripts',function () {
     if (strpos(get_current_screen()->id,'qif-')===false) { return; }
-    wp_enqueue_style('qif-admin',QIF_URL.'assets/admin.css',array(),'1.2.0');
-    wp_enqueue_script('qif-admin',QIF_URL.'assets/admin.js',array(),'1.2.0',true);
-    wp_enqueue_script('qif-workbench',QIF_URL.'assets/workbench.js',array('qif-admin'),'1.2.0',true);
+    wp_enqueue_style('qif-admin',QIF_URL.'assets/admin.css',array(),'1.3.0');
+    wp_enqueue_script('qif-admin',QIF_URL.'assets/admin.js',array(),'1.3.0',true);
+    wp_enqueue_script('qif-workbench',QIF_URL.'assets/workbench.js',array('qif-admin'),'1.3.0',true);
     wp_localize_script('qif-admin','qifAdmin',array('nonce'=>wp_create_nonce('qif_admin')));
 });
 add_action('admin_init',function () { register_setting('qif','qif_settings',array('sanitize_callback'=>__NAMESPACE__.'\\sanitize')); });
@@ -162,7 +162,7 @@ function page() {
     echo '<div class="wrap qif"><header class="qif-brand"><img class="qif-brand-mark" src="'.esc_url(QIF_URL.'assets/qevora-mark.png').'" alt=""><div class="qif-brand-type"><span>Qevora Software</span><h1>ImageFlow</h1></div></header><nav>';
     foreach (pages() as $k=>$title) { echo '<a '.($k===$key?'aria-current="page"':'').' href="'.esc_url(page_url($k)).'">'; h($title); echo '</a>'; }
     echo '</nav><h2 class="qif-title">'; h(pages()[$key] ?? 'Dashboard'); echo '</h2>'; if ($key!=='bulk') { echo '<p role="status" id="qif-status"></p>'; }
-    if ($key==='workflow') { workflow_screen(); } elseif ($key==='docs') {
+    if ($key==='audit') { audit_panel(); } elseif ($key==='workflow') { workflow_screen(); } elseif ($key==='docs') {
         require __DIR__.'/../docs/guide.html';
     } elseif ($key==='inspector') {
         echo '<section><h2>Inspect a published page</h2><p>Open any frontend page while signed in, then choose <strong>Inspect page images</strong> in the WordPress toolbar. Open the widget or popup you want to inspect and select <strong>Scan viewport</strong>.</p>';
@@ -177,6 +177,7 @@ function page() {
         $base['config']['sources']=array_keys(formats());
         foreach (array('Eligible sources'=>$eligible,'Pending'=>$pending,'Converted'=>attachment_query($base,true,'converted')->found_posts,'Skipped'=>attachment_query($base,true,'skipped')->found_posts,'Failed'=>attachment_query($base,true,'failed')->found_posts,'Delivery savings'=>size_format(abs($a-$b)).($a<$b?' increase':'').' ('.($a?round(100*($a-$b)/$a):0).'%)') as $label=>$val) { echo '<section><span>'; h($label); echo '</span><strong>'.esc_html($val).'</strong></section>'; }
         echo '</div><section><h2>Storage comparison</h2><p>Matched originals · '.esc_html(size_format($a)).' &nbsp; Preferred alternatives · '.esc_html(size_format($b)).'</p><a class="button button-primary" href="'.esc_url(page_url('bulk')).'">Convert existing images</a></section>';
+        audit_panel(false);
         diagnostics();
     } elseif ($key==='elementor') {
         echo '<section><h2>Elementor assets</h2><p>Image URLs and responsive candidates are resolved in the browser. Same-origin style rules with one background URL can use typed image-set alternatives, including media queries and hover states. Complex backgrounds retain their original CSS.</p>';
@@ -238,10 +239,10 @@ function queue($cmd,$ids,$requested=null,$quality=array()) {
     }
     unset($job['ids'],$job['config']); return $job;
 }
-function attachment_query($job,$count=false,$state='',$order='ASC') {
-    $mimes=array_values(array_intersect_key(formats(),array_flip($job['config']['sources'] ?? settings()['sources'])));
+function attachment_query($job,$count=false,$state='',$order='ASC',$mime_override=null,$page_size=1) {
+    $mimes=$mime_override ?? array_values(array_intersect_key(formats(),array_flip($job['config']['sources'] ?? settings()['sources'])));
     $args=array('post_type'=>'attachment','post_status'=>'inherit','post_mime_type'=>$mimes,
-        'fields'=>'ids','posts_per_page'=>1,'orderby'=>'ID','order'=>$order,'no_found_rows'=>!$count,
+        'fields'=>'ids','posts_per_page'=>$page_size,'orderby'=>'ID','order'=>$order,'no_found_rows'=>!$count,
         'qif_bounds'=>true,'ignore_sticky_posts'=>true,'cache_results'=>false);
     if (!$mimes) { $args['post__in']=array(0); }
     if ($job['mode']==='retry') { $state='failed'; }

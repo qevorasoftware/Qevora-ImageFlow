@@ -35,3 +35,17 @@ include $view;
 $preview=ob_get_clean();
 if (strpos($preview,'ImageFlow trial heading')===false) { throw new RuntimeException('Elementor trial markup missing'); }
 WP_CLI::success('Verified conversion, size advice data, initial HTML and Elementor template rendering.');
+
+// Exercise both attachment MIME families, boundary values, unknown measurements and the grouped chart totals.
+$qif_limits=Qevora\ImageFlow\audit_defaults();
+foreach (array(10,50,null) as $qif_mib) {
+    $qif_video=wp_insert_attachment(array('post_title'=>'Video sample','post_mime_type'=>'video/mp4','post_status'=>'inherit'));
+    if (null!==$qif_mib) { wp_update_attachment_metadata($qif_video,array('filesize'=>$qif_mib*1048576)); }
+}
+$qif_scan=Qevora\ImageFlow\audit_begin($qif_limits);
+while (!Qevora\ImageFlow\audit_step($qif_scan)) { /* Advance through the disposable library. */ }
+$qif_video_groups=$qif_scan['groups']['video'];
+if (1!==$qif_video_groups['medium']['count'] || 1!==$qif_video_groups['high']['count'] || 1!==$qif_video_groups['unknown']['count'] || 50*1048576!==$qif_video_groups['high']['bytes'] || !$qif_scan['groups']['image']['low']['count']) {
+    throw new RuntimeException('Media size report totals or thresholds differ from the fixture.');
+}
+WP_CLI::success('Verified image and video size audit, threshold boundaries and unknown sizes.');

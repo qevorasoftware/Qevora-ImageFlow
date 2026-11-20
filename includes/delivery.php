@@ -42,7 +42,7 @@ function has_generated_files() {
 add_action('wp_enqueue_scripts',function () {
     $s=settings();
     if (!$s['delivery'] || (did_action('elementor/loaded') && !$s['elementor']) || !has_generated_files()) { return; }
-    wp_enqueue_script('qif-delivery',QIF_URL.'assets/delivery.js',array(),'1.2.0',array('strategy'=>'defer','in_footer'=>true));
+    wp_enqueue_script('qif-delivery',QIF_URL.'assets/delivery.js',array(),'1.3.0',array('strategy'=>'defer','in_footer'=>true));
     wp_localize_script('qif-delivery','qifDelivery',array('base'=>trailingslashit(wp_get_upload_dir()['baseurl']),'api'=>rest_url('qevora-imageflow/v1/resolve'),'css'=>did_action('elementor/loaded') && $s['background']));
 });
 
