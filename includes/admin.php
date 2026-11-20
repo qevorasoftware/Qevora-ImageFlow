@@ -11,8 +11,8 @@ add_action('admin_menu',function () {
 });
 add_action('admin_enqueue_scripts',function () {
     if (strpos(get_current_screen()->id,'qif-')===false) { return; }
-    wp_enqueue_style('qif-admin',QIF_URL.'assets/admin.css',array(),'1.0.6');
-    wp_enqueue_script('qif-admin',QIF_URL.'assets/admin.js',array(),'1.0.6',true);
+    wp_enqueue_style('qif-admin',QIF_URL.'assets/admin.css',array(),'1.0.7');
+    wp_enqueue_script('qif-admin',QIF_URL.'assets/admin.js',array(),'1.0.7',true);
     wp_localize_script('qif-admin','qifAdmin',array('nonce'=>wp_create_nonce('qif_admin')));
 });
 add_action('admin_init',function () { register_setting('qif','qif_settings',array('sanitize_callback'=>__NAMESPACE__.'\\sanitize')); });
@@ -157,7 +157,7 @@ function stats($meta) {
 function page() {
     global $plugin_page;
     $key=substr(sanitize_key((string)$plugin_page),4);
-    echo '<div class="wrap qif"><header><div class="qif-mark" aria-hidden="true">Q</div><div><span>QEVORA SOFTWARE</span><h1>ImageFlow</h1></div></header><nav>';
+    echo '<div class="wrap qif"><header class="qif-brand"><img class="qif-brand-mark" src="'.esc_url(QIF_URL.'assets/qevora-mark.png').'" alt=""><div class="qif-brand-type"><span>Qevora Software</span><h1>ImageFlow</h1></div></header><nav>';
     foreach (pages() as $k=>$title) { echo '<a '.($k===$key?'aria-current="page"':'').' href="'.esc_url(page_url($k)).'">'; h($title); echo '</a>'; }
     echo '</nav><h2 class="qif-title">'; h(pages()[$key] ?? 'Dashboard'); echo '</h2>'; if ($key!=='bulk') { echo '<p role="status" id="qif-status"></p>'; }
     if ($key==='settings') { options_page(); }
