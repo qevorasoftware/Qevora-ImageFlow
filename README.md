@@ -1,10 +1,10 @@
 # Qevora ImageFlow
 
-A WordPress plugin by Qevora Software. Version 1.0.4 is packaged for staging validation. See [acceptance results](tests/acceptance.md) for release coverage.
+A WordPress plugin by Qevora Software. Version 1.0.5 is packaged for staging validation. See [acceptance results](tests/acceptance.md) for release coverage.
 
 ## Start on an existing Elementor site
 
-1. Install the ZIP from Plugins → Add New → Upload Plugin on staging. Open ImageFlow → Settings. Keep original delivery enabled by turning off “Deliver optimized images” while preparing your first batch.
+1. Use the packaged ZIP with the top-level folder `qevora-imageflow/`. GitHub’s **Code → Download ZIP** names the folder after the branch and causes Plugin Check text-domain mismatches. Install the packaged ZIP from Plugins → Add New → Upload Plugin on staging. Open ImageFlow → Settings. Keep original delivery enabled by turning off “Deliver optimized images” while preparing your first batch.
 2. Select source types, outputs, preferred format, and sizes. JPG and PNG are initially selected. The server must provide GD or Imagick with the relevant codecs. Advertised codec availability is provisional until a real conversion succeeds.
 3. Open an attachment, click Convert now, and inspect the previews and byte counts. Use a transparent logo, a large photo and an animation as samples.
 4. In Bulk Converter choose checked images or the whole eligible library, select output formats, review the summary and click Start conversion. Selection and forced conversion use the checked rows. Filters narrow the displayed list. Start all eligible scans all enabled source formats. Pause or stop between attachments. Closing the page suspends processing until the bulk screen reopens. New uploads use WP-Cron.

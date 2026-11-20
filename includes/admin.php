@@ -2,17 +2,17 @@
 namespace Qevora\ImageFlow;
 defined('ABSPATH') || exit;
 require_once __DIR__.'/admin-help.php';
-function pages() { return array('home'=>'Dashboard','settings'=>'Settings','bulk'=>'Bulk Converter','media'=>'Media Library Tools','elementor'=>'Elementor Integration','logs'=>'Logs & Tools'); }
+function pages() { return array('home'=>__('Dashboard','qevora-imageflow'),'settings'=>__('Settings','qevora-imageflow'),'bulk'=>__('Bulk Converter','qevora-imageflow'),'media'=>__('Media Library Tools','qevora-imageflow'),'elementor'=>__('Elementor Integration','qevora-imageflow'),'logs'=>__('Logs & Tools','qevora-imageflow')); }
 function page_url($key) { return admin_url('admin.php?page=qif-'.$key); }
-function h($str) { echo esc_html(translate($str,'qevora-imageflow')); }
+function h($str) { echo esc_html($str); }
 add_action('admin_menu',function () {
     add_menu_page('Qevora ImageFlow','Qevora ImageFlow','manage_options','qif-home',__NAMESPACE__.'\\page','dashicons-format-image');
     foreach (pages() as $key=>$title) { add_submenu_page('qif-home',$title,$title,'manage_options','qif-'.$key,__NAMESPACE__.'\\page'); }
 });
 add_action('admin_enqueue_scripts',function () {
     if (strpos(get_current_screen()->id,'qif-')===false) { return; }
-    wp_enqueue_style('qif-admin',QIF_URL.'assets/admin.css',array(),'1.0.4');
-    wp_enqueue_script('qif-admin',QIF_URL.'assets/admin.js',array(),'1.0.4',true);
+    wp_enqueue_style('qif-admin',QIF_URL.'assets/admin.css',array(),'1.0.5');
+    wp_enqueue_script('qif-admin',QIF_URL.'assets/admin.js',array(),'1.0.5',true);
     wp_localize_script('qif-admin','qifAdmin',array('nonce'=>wp_create_nonce('qif_admin')));
 });
 add_action('admin_init',function () { register_setting('qif','qif_settings',array('sanitize_callback'=>__NAMESPACE__.'\\sanitize')); });
@@ -20,36 +20,37 @@ function check($key,$label,$value=null,$disabled=false) {
     $s=settings();
     $on=$value===null?$s[$key]:in_array($value,$s[$key],true);
     echo '<div class="qif-field"><label class="qif-check"><input type="checkbox" name="qif_settings['.esc_attr($key).']'.($value===null?'':'[]').'" value="'.esc_attr($value ?? 1).'" '.checked($on && !$disabled,true,false).' '.disabled($disabled,true,false).'> ';
-    h($label); if ($disabled) { echo ' <small>'; h('Codec unavailable'); echo '</small>'; } echo '</label>';
+    h($label); if ($disabled) { echo ' <small>'; esc_html_e('Codec unavailable','qevora-imageflow'); echo '</small>'; } echo '</label>';
     if ($key==='sizes') {
+        /* translators: %s: registered WordPress image size name. */
         $note=sprintf(__('Generate an alternative for the %s size when WordPress has created it. Enable sizes used by your theme or galleries so smaller screens can load smaller images.', 'qevora-imageflow'),$value);
     } elseif ($key==='sources' || $key==='targets') {
         $note=format_guidance($value,$key==='sources',$disabled);
     } else { $note=option_guidance($key); }
-    echo guidance_html($label,$note,$disabled).'</div>';
+    echo wp_kses( guidance_html($label,$note,$disabled), help_tags() ).'</div>';
 }
 function options_page() {
     $s=settings();
     echo '<form method="post" action="options.php">'; settings_fields('qif');
-    echo '<section><h2>'; h('Image formats'); echo '</h2><h3>'; h('Convert from'); echo '</h3><div class="qif-grid">';
+    echo '<section><h2>'; esc_html_e('Image formats','qevora-imageflow'); echo '</h2><h3>'; esc_html_e('Convert from','qevora-imageflow'); echo '</h3><div class="qif-grid">';
     foreach (formats() as $key=>$mime) { check('sources',strtoupper($key),$key,!capable($key)); }
-    echo '</div><h3>'; h('Generate'); echo '</h3><div class="qif-grid">';
+    echo '</div><h3>'; esc_html_e('Generate','qevora-imageflow'); echo '</h3><div class="qif-grid">';
     foreach (outputs() as $key) { check('targets',strtoupper($key),$key,!encoder($key)); }
-    echo '</div><p><label>'; h('Preferred delivery format'); echo ' <select name="qif_settings[preferred]">';
+    echo '</div><p><label>'; esc_html_e('Preferred delivery format','qevora-imageflow'); echo ' <select name="qif_settings[preferred]">';
     foreach (outputs() as $key) { echo '<option '.selected($key,$s['preferred'],false).' '.disabled(!encoder($key),true,false).' value="'.esc_attr($key).'">'.esc_html(strtoupper($key)).'</option>'; }
-    echo '</select></label></p>'.guidance_html('Preferred delivery format',option_guidance('preferred')).'<p>'; h('Same-format outputs are skipped. Images with transparency are retained when JPEG would lose alpha.'); echo '</p></section><section><h2>'; h('Conversion & delivery'); echo '</h2>';
-    foreach (array('auto'=>'Convert new uploads in the background','smaller'=>'Keep only smaller alternatives','strip'=>'Strip metadata where supported','delivery'=>'Deliver optimized images','elementor'=>'Enable delivery on Elementor sites','background'=>'Optimize supported CSS backgrounds on Elementor sites') as $k=>$label) { check($k,$label); }
-    echo '<h3>'; h('Intermediate image sizes'); echo '</h3><div class="qif-grid">';
+    echo '</select></label></p>'.wp_kses( guidance_html('Preferred delivery format',option_guidance('preferred')), help_tags() ).'<p>'; esc_html_e('Same-format outputs are skipped. Images with transparency are retained when JPEG would lose alpha.','qevora-imageflow'); echo '</p></section><section><h2>'; esc_html_e('Conversion & delivery','qevora-imageflow'); echo '</h2>';
+    foreach (array('auto'=>__('Convert new uploads in the background','qevora-imageflow'),'smaller'=>__('Keep only smaller alternatives','qevora-imageflow'),'strip'=>__('Strip metadata where supported','qevora-imageflow'),'delivery'=>__('Deliver optimized images','qevora-imageflow'),'elementor'=>__('Enable delivery on Elementor sites','qevora-imageflow'),'background'=>__('Optimize supported CSS backgrounds on Elementor sites','qevora-imageflow')) as $k=>$label) { check($k,$label); }
+    echo '<h3>'; esc_html_e('Intermediate image sizes','qevora-imageflow'); echo '</h3><div class="qif-grid">';
     foreach (get_intermediate_image_sizes() as $size) { check('sizes',$size,$size); }
-    echo '</div></section><section><h2>'; h('Quality & limits'); echo '</h2><div class="qif-grid">';
-    foreach (array('webp'=>'WebP quality','avif'=>'AVIF quality','jpeg'=>'JPEG quality','png'=>'PNG compression','megabytes'=>'Maximum MB','megapixels'=>'Maximum megapixels') as $k=>$label) {
+    echo '</div></section><section><h2>'; esc_html_e('Quality & limits','qevora-imageflow'); echo '</h2><div class="qif-grid">';
+    foreach (array('webp'=>__('WebP quality','qevora-imageflow'),'avif'=>__('AVIF quality','qevora-imageflow'),'jpeg'=>__('JPEG quality','qevora-imageflow'),'png'=>__('PNG compression','qevora-imageflow'),'megabytes'=>__('Maximum MB','qevora-imageflow'),'megapixels'=>__('Maximum megapixels','qevora-imageflow')) as $k=>$label) {
         $max=array('png'=>9,'megabytes'=>128,'megapixels'=>64)[$k] ?? 100;
-        echo '<div class="qif-field"><label>'; h($label); echo '<input type="number" min="'.($k==='png'?0:1).'" max="'.intval($max).'" name="qif_settings['.esc_attr($k).']" value="'.intval($s[$k]).'"></label>'.guidance_html($label,option_guidance($k)).'</div>';
+        echo '<div class="qif-field"><label>'; h($label); echo '<input type="number" min="'.($k==='png'?0:1).'" max="'.intval($max).'" name="qif_settings['.esc_attr($k).']" value="'.intval($s[$k]).'"></label>'.wp_kses( guidance_html($label,option_guidance($k)), help_tags() ).'</div>';
     }
-    echo '</div><p><label>'; h('Excluded attachment IDs (comma-separated)'); echo ' <input name="qif_settings[exclude]" value="'.esc_attr($s['exclude']).'"></label></p>'.guidance_html('Excluded IDs',option_guidance('exclude')).'<p>'; h('Run bulk conversion after changing output, quality, size or exclusion settings.'); echo '</p></section>'; submit_button(); echo '</form>';
+    echo '</div><p><label>'; esc_html_e('Excluded attachment IDs (comma-separated)','qevora-imageflow'); echo ' <input name="qif_settings[excluded_ids]" value="'.esc_attr($s['excluded_ids']).'"></label></p>'.wp_kses( guidance_html('Excluded IDs',option_guidance('excluded_ids')), help_tags() ).'<p>'; esc_html_e('Run bulk conversion after changing output, quality, size or exclusion settings.','qevora-imageflow'); echo '</p></section>'; submit_button(); echo '</form>';
 }
 function button($cmd,$label,$id=0) {
-    echo '<div class="qif-help-action"><button type="button" class="button" data-qif="'.esc_attr($cmd).'" data-id="'.absint($id).'">'; h($label); echo '</button>'.guidance_html($label,option_guidance($cmd)).'</div>';
+    echo '<div class="qif-help-action"><button type="button" class="button" data-qif="'.esc_attr($cmd).'" data-id="'.absint($id).'">'; h($label); echo '</button>'.wp_kses( guidance_html($label,option_guidance($cmd)), help_tags() ).'</div>';
 }
 function output_labels($id) {
     $map=get_post_meta($id,'_qif_map',true);
@@ -66,17 +67,17 @@ function output_labels($id) {
 function bulk_form() {
     $s=settings();
     echo '<section><h2>1. Choose images</h2><label>Images to convert <select id="qif-scope"><option value="selected">Checked images</option><option value="start">All eligible images in the library</option><option value="retry">Failed eligible images</option><option value="force">Force reconvert checked images</option></select></label>';
-    echo guidance_html('Images to convert',option_guidance('scope'));
+    echo wp_kses( guidance_html('Images to convert',option_guidance('scope')), help_tags() );
     echo '<p>Enabled source formats: '.esc_html(strtoupper(implode(', ',$s['sources']))).'.</p>';
     media_rows('bulk');
     echo '</section><section><h2>2. Choose output formats</h2><fieldset id="qif-targets"><legend>Convert images to</legend>';
     foreach (outputs() as $format) {
         $available=encoder($format);
-        echo '<div class="qif-help-action"><label class="qif-format"><input type="checkbox" value="'.esc_attr($format).'" '.checked($available && in_array($format,$s['targets'],true),true,false).' '.disabled(!$available,true,false).'> '.esc_html(strtoupper($format)).($available?'':' (encoder unavailable)').'</label>'.guidance_html(strtoupper($format),format_guidance($format,false,!$available),!$available).'</div>';
+        echo '<div class="qif-help-action"><label class="qif-format"><input type="checkbox" value="'.esc_attr($format).'" '.checked($available && in_array($format,$s['targets'],true),true,false).' '.disabled(!$available,true,false).'> '.esc_html(strtoupper($format)).($available?'':' (encoder unavailable)').'</label>'.wp_kses( guidance_html(strtoupper($format),format_guidance($format,false,!$available),!$available), help_tags() ).'</div>';
     }
     echo '</fieldset><p>Choose one or more formats for this batch. Settings controls the preferred format delivered to visitors.</p></section><section><h2>3. Review and convert</h2><p id="qif-review" aria-live="polite"></p>';
     button('launch','Start conversion');
-    foreach (array('pause'=>'Pause','resume'=>'Resume','stop'=>'Stop') as $cmd=>$label) { button($cmd,$label); }
+    foreach (array('pause'=>__('Pause','qevora-imageflow'),'resume'=>__('Resume','qevora-imageflow'),'stop'=>__('Stop','qevora-imageflow')) as $cmd=>$label) { button($cmd,$label); }
     progress_meter();
     echo '<p role="status" id="qif-status"></p></section>';
 }
@@ -84,25 +85,29 @@ function progress_meter() {
     echo '<div id="qif-progress" hidden><label for="qif-meter">Conversion progress <strong id="qif-percent">0%</strong></label><progress id="qif-meter" value="0" max="100"></progress></div>';
 }
 function media_rows($key) {
-    $page=max(1,absint($_GET['paged'] ?? 1));
-    $mime=sanitize_key($_GET['fmt'] ?? '');
-    $state=sanitize_key($_GET['state'] ?? '');
+    // Read-only list filters; AJAX writes have a separate capability and nonce check.
+    $page=max(1,absint(filter_input(INPUT_GET,'paged',FILTER_VALIDATE_INT)));
+    $mime=sanitize_key((string)filter_input(INPUT_GET,'fmt',FILTER_UNSAFE_RAW));
+    $state=sanitize_key((string)filter_input(INPUT_GET,'state',FILTER_UNSAFE_RAW));
     $args=array('post_type'=>'attachment','post_status'=>'inherit','post_mime_type'=>formats()[$mime] ?? 'image','posts_per_page'=>20,'paged'=>$page);
-    if (in_array($state,array('converted','failed','skipped'),true)) { $args['meta_key']='_qif_status'; $args['meta_value']=$state; }
-    $month=sanitize_text_field($_GET['month'] ?? '');
+    if (in_array($state,array('converted','failed','skipped'),true)) { $args['meta_query']=array(array('key'=>'_qif_status','value'=>$state)); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Explicit paginated filter on plugin-owned metadata.
+    }
+    $month=sanitize_text_field((string)filter_input(INPUT_GET,'month',FILTER_UNSAFE_RAW));
     if (preg_match('/^(\d{4})-(0[1-9]|1[0-2])$/',$month,$parts)) { $args['date_query']=array(array('year'=>(int)$parts[1],'month'=>(int)$parts[2])); }
-    if ($key==='logs' && !$state) { $args['meta_key']='_qif_detail'; }
+    if ($key==='logs' && !$state) { $args['meta_query']=array(array('key'=>'_qif_detail','compare'=>'EXISTS')); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Paginated latest-result log.
+    }
+    if (isset($args['meta_query'])) { $args['cache_results']=false; }
     $query=new \WP_Query($args);
     $filtered = $mime || $state || $month;
     echo '<div id="qif-results" class="qif-library" data-view="'.esc_attr($key).'">';
-    echo '<div class="qif-list-title"><h3>'; h('Image list'); echo '</h3><span>'.esc_html(number_format_i18n($query->found_posts)).' '.esc_html(_n('image','images',$query->found_posts,'qevora-imageflow')).'</span></div>';
-    echo '<details class="qif-filters" '.($filtered ? 'open' : '').'><summary>'; h('Filter image list'); echo '</summary>';
+    echo '<div class="qif-list-title"><h3>'; esc_html_e('Image list','qevora-imageflow'); echo '</h3><span>'.esc_html(number_format_i18n($query->found_posts)).' '.esc_html(_n('image','images',$query->found_posts,'qevora-imageflow')).'</span></div>';
+    echo '<details class="qif-filters" '.($filtered ? 'open' : '').'><summary>'; esc_html_e('Filter image list','qevora-imageflow'); echo '</summary>';
     echo '<form method="get" action="'.esc_url(admin_url('admin.php')).'"><input type="hidden" name="page" value="qif-'.esc_attr($key).'">';
     echo '<div><label>Original format<select name="fmt"><option value="">All formats</option>';
     foreach (formats() as $k=>$val) { echo '<option '.selected($mime,$k,false).' value="'.esc_attr($k).'">'.esc_html(strtoupper($k)).'</option>'; }
-    echo '</select></label>'.guidance_html('Original format',option_guidance('fmt')).'</div><div><label>Conversion status<select name="state"><option value="">Any status</option>';
+    echo '</select></label>'.wp_kses( guidance_html('Original format',option_guidance('fmt')), help_tags() ).'</div><div><label>Conversion status<select name="state"><option value="">Any status</option>';
     foreach (array('converted','failed','skipped') as $k) { echo '<option value="'.esc_attr($k).'" '.selected($state,$k,false).'>'.esc_html(ucfirst($k)).'</option>'; }
-    echo '</select></label>'.guidance_html('Conversion status',option_guidance('state')).'</div><div><label>Uploaded in<input type="month" name="month" value="'.esc_attr($month).'"></label>'.guidance_html('Uploaded in',option_guidance('month')).'</div><button class="button">Apply filters</button>';
+    echo '</select></label>'.wp_kses( guidance_html('Conversion status',option_guidance('state')), help_tags() ).'</div><div><label>Uploaded in<input type="month" name="month" value="'.esc_attr($month).'"></label>'.wp_kses( guidance_html('Uploaded in',option_guidance('month')), help_tags() ).'</div><button class="button">Apply filters</button>';
     if ($filtered) { echo '<a href="'.esc_url(page_url($key)).'">Clear filters</a>'; }
     echo '</form></details><div class="qif-list-scroll" tabindex="0" role="region" aria-label="Image list"><table class="qif-list-table"><thead><tr><th><input type="checkbox" aria-label="Select visible page" id="qif-all"></th><th>Image</th><th>Original</th><th>Generated</th><th>Status</th><th>Last result (UTC)</th></tr></thead><tbody>';
     foreach ($query->posts as $p) {
@@ -112,7 +117,7 @@ function media_rows($key) {
         $title=$p->post_title ?: '#'.$id;
         $thumb=wp_get_attachment_image($id,'thumbnail',false,array('class'=>'qif-thumbnail','alt'=>'','loading'=>'lazy'));
         echo '<tr data-attachment="'.absint($id).'"><td><input class="qif-id" type="checkbox" aria-label="'.esc_attr('Select '.$title).'" value="'.absint($id).'"></td>';
-        echo '<td><a class="qif-image-link" href="'.esc_url(get_edit_post_link($id)).'">'.$thumb.'<span>'.esc_html($title).'</span></a></td>';
+        echo '<td><a class="qif-image-link" href="'.esc_url(get_edit_post_link($id)).'">'.wp_kses_post($thumb).'<span>'.esc_html($title).'</span></a></td>';
         echo '<td>'.esc_html(strtoupper(str_replace('image/','',get_post_mime_type($id)))).'</td><td><span class="qif-output" data-result="formats">'.esc_html(output_labels($id) ?: '—').'</span></td>';
         echo '<td><span class="qif-state" data-state="'.esc_attr($status).'" data-result="status">'.esc_html($status).'</span></td><td data-result="detail">'.esc_html($detail ?: '—').'</td></tr>';
     }
@@ -122,25 +127,37 @@ function media_rows($key) {
     if ($links) { echo '<div class="qif-pages">'.wp_kses_post($links).'</div>'; }
     echo '</div>';
 }
+function invalidate_total($meta_id,$object_id,$key) {
+    if (in_array($key,array('_qif_before','_qif_after'),true)) { wp_cache_delete($key,'qif_totals'); }
+}
+add_action('updated_post_meta',__NAMESPACE__.'\\invalidate_total',10,3);
+add_action('added_post_meta',__NAMESPACE__.'\\invalidate_total',10,3);
+add_action('deleted_post_meta',__NAMESPACE__.'\\invalidate_total',10,3);
 function stats($meta) {
     global $wpdb;
-    return (int)$wpdb->get_var($wpdb->prepare("SELECT SUM(CAST(meta_value AS SIGNED)) FROM $wpdb->postmeta WHERE meta_key=%s",$meta));
+    $total=wp_cache_get($meta,'qif_totals');
+    if (false===$total) {
+        // WP_Query has no aggregate API. Sum one plugin-owned key and cache it until metadata changes.
+        $total=(int)$wpdb->get_var($wpdb->prepare("SELECT SUM(CAST(meta_value AS SIGNED)) FROM $wpdb->postmeta WHERE meta_key=%s",$meta)); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Cache surrounds this aggregate.
+        wp_cache_set($meta,$total,'qif_totals',300);
+    }
+    return $total;
 }
 function page() {
-    $key=substr(sanitize_key($_GET['page'] ?? ''),4);
+    global $plugin_page;
+    $key=substr(sanitize_key((string)$plugin_page),4);
     echo '<div class="wrap qif"><header><div class="qif-mark" aria-hidden="true">Q</div><div><span>QEVORA SOFTWARE</span><h1>ImageFlow</h1></div></header><nav>';
     foreach (pages() as $k=>$title) { echo '<a '.($k===$key?'aria-current="page"':'').' href="'.esc_url(page_url($k)).'">'; h($title); echo '</a>'; }
     echo '</nav><h2 class="qif-title">'; h(pages()[$key] ?? 'Dashboard'); echo '</h2>'; if ($key!=='bulk') { echo '<p role="status" id="qif-status"></p>'; }
     if ($key==='settings') { options_page(); }
     elseif ($key==='home') {
-        global $wpdb;
-        $counts=$wpdb->get_results("SELECT meta_value AS state,COUNT(*) AS n FROM $wpdb->postmeta WHERE meta_key='_qif_status' GROUP BY meta_value",OBJECT_K);
         $a=stats('_qif_before'); $b=stats('_qif_after');
         echo '<div class="qif-grid cards">';
-        $where=queue_where(array('cursor'=>0,'limit'=>PHP_INT_MAX,'mode'=>'start'));
-        $eligible=(int)$wpdb->get_var("SELECT COUNT(*) FROM $wpdb->posts p WHERE ".$where);
-        $pending=(int)$wpdb->get_var("SELECT COUNT(*) FROM $wpdb->posts p WHERE ".$where." AND NOT EXISTS (SELECT 1 FROM $wpdb->postmeta m WHERE m.post_id=p.ID AND m.meta_key='_qif_status')");
-        foreach (array('Eligible sources'=>$eligible,'Pending'=>$pending,'Converted'=>$counts['converted']->n ?? 0,'Skipped'=>$counts['skipped']->n ?? 0,'Failed'=>$counts['failed']->n ?? 0,'Delivery savings'=>size_format(abs($a-$b)).($a<$b?' increase':'').' ('.($a?round(100*($a-$b)/$a):0).'%)') as $label=>$val) { echo '<section><span>'; h($label); echo '</span><strong>'.esc_html($val).'</strong></section>'; }
+        $base=array('mode'=>'start','cursor'=>0,'limit'=>PHP_INT_MAX);
+        $eligible=attachment_query($base,true)->found_posts;
+        $pending=attachment_query($base,true,'pending')->found_posts;
+        $base['config']['sources']=array_keys(formats());
+        foreach (array('Eligible sources'=>$eligible,'Pending'=>$pending,'Converted'=>attachment_query($base,true,'converted')->found_posts,'Skipped'=>attachment_query($base,true,'skipped')->found_posts,'Failed'=>attachment_query($base,true,'failed')->found_posts,'Delivery savings'=>size_format(abs($a-$b)).($a<$b?' increase':'').' ('.($a?round(100*($a-$b)/$a):0).'%)') as $label=>$val) { echo '<section><span>'; h($label); echo '</span><strong>'.esc_html($val).'</strong></section>'; }
         echo '</div><section><h2>Storage comparison</h2><p>Matched originals · '.esc_html(size_format($a)).' &nbsp; Preferred alternatives · '.esc_html(size_format($b)).'</p><a class="button button-primary" href="'.esc_url(page_url('bulk')).'">Convert existing images</a></section>';
         diagnostics();
     } elseif ($key==='elementor') {
@@ -161,7 +178,6 @@ function diagnostics() {
     echo '</dl></section>';
 }
 function queue($cmd,$ids,$requested=null) {
-    global $wpdb;
     $job=get_option('qif_job',array('state'=>'idle','done'=>0,'total'=>0));
     if (in_array($cmd,array('start','selected','force','retry'),true)) {
         if ($job['state']==='running' || $job['state']==='paused') { throw new \RuntimeException('Stop the current job first.'); }
@@ -176,14 +192,15 @@ function queue($cmd,$ids,$requested=null) {
         $config['targets']=array_values(array_unique($targets));
         if (!in_array($config['preferred'],$targets,true)) { $config['preferred']=$config['targets'][0]; }
         $job['config']=$config;
-        $job['limit']=(int)$wpdb->get_var("SELECT MAX(ID) FROM $wpdb->posts");
-        $job['total']=$list?count($ids):(int)$wpdb->get_var('SELECT COUNT(*) FROM '.$wpdb->posts.' p WHERE '.queue_where($job));
+        $job['limit']=PHP_INT_MAX;
+        $job['limit']=(int)(attachment_query($job,false,'','DESC')->posts[0] ?? 0);
+        $job['total']=$list?count($ids):(int)attachment_query($job,true)->found_posts;
     } elseif ($cmd==='pause' && $job['state']==='running') { $job['state']='paused'; }
     elseif ($cmd==='resume' && $job['state']==='paused') { $job['state']='running'; }
     elseif ($cmd==='stop') { $job['state']='stopped'; }
     elseif ($cmd==='tick' && $job['state']==='running') {
         $list=in_array($job['mode'],array('selected','force'),true);
-        $id=$list?($job['ids'][$job['done']] ?? 0):(int)$wpdb->get_var('SELECT ID FROM '.$wpdb->posts.' p WHERE '.queue_where($job).' ORDER BY ID LIMIT 1');
+        $id=$list?($job['ids'][$job['done']] ?? 0):(int)(attachment_query($job)->posts[0] ?? 0);
         if (!$id) { $job['state']='complete'; }
         else {
             $result=convert($id,$job['mode']==='force',$job['config'] ?? null);
@@ -201,19 +218,33 @@ function queue($cmd,$ids,$requested=null) {
     }
     unset($job['ids'],$job['config']); return $job;
 }
-function queue_where($job) {
-    global $wpdb;
-    $mimes=array_intersect_key(formats(),array_flip($job['config']['sources'] ?? settings()['sources']));
-    if (!$mimes) { return '1=0'; }
-    $sql=$wpdb->prepare("p.post_type='attachment' AND p.post_status='inherit' AND p.ID>%d AND p.ID<=%d AND p.post_mime_type IN (".implode(',',array_fill(0,count($mimes),'%s')).')',array_merge(array($job['cursor'],$job['limit']),array_values($mimes)));
-    if ($job['mode']==='retry') { $sql.=" AND EXISTS (SELECT 1 FROM $wpdb->postmeta m WHERE m.post_id=p.ID AND m.meta_key='_qif_status' AND m.meta_value='failed')"; }
-    return $sql;
+function attachment_query($job,$count=false,$state='',$order='ASC') {
+    $mimes=array_values(array_intersect_key(formats(),array_flip($job['config']['sources'] ?? settings()['sources'])));
+    $args=array('post_type'=>'attachment','post_status'=>'inherit','post_mime_type'=>$mimes,
+        'fields'=>'ids','posts_per_page'=>1,'orderby'=>'ID','order'=>$order,'no_found_rows'=>!$count,
+        'qif_bounds'=>true,'ignore_sticky_posts'=>true,'cache_results'=>false);
+    if (!$mimes) { $args['post__in']=array(0); }
+    if ($job['mode']==='retry') { $state='failed'; }
+    if ($state) {
+        $args['meta_query']=array($state==='pending' ? array('key'=>'_qif_status','compare'=>'NOT EXISTS') : array('key'=>'_qif_status','value'=>$state)); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Match persisted conversion state, including pre-upgrade records.
+    }
+    $bounds=static function ($where,$query) use ($job) {
+        global $wpdb;
+        if ($query->get('qif_bounds')) {
+            $where.=$wpdb->prepare(" AND {$wpdb->posts}.ID > %d AND {$wpdb->posts}.ID <= %d",$job['cursor'],$job['limit']);
+        }
+        return $where;
+    };
+    add_filter('posts_where',$bounds,10,2);
+    try { return new \WP_Query($args); }
+    finally { remove_filter('posts_where',$bounds,10); }
 }
 add_action('wp_ajax_qif_action',function () {
     check_ajax_referer('qif_admin');
     if (!current_user_can('manage_options')) { wp_send_json_error('Access denied',403); }
     $cmd=sanitize_key($_POST['cmd'] ?? '');
     $ids=array_slice(wp_parse_id_list(wp_unslash($_POST['ids'] ?? '')),0,100);
+    $requested=isset($_POST['targets']) ? explode(',',sanitize_text_field(wp_unslash($_POST['targets']))) : null;
     try {
         switch ($cmd) {
             case 'results':
@@ -234,7 +265,7 @@ add_action('wp_ajax_qif_action',function () {
                 $result=array();
                 foreach ($ids as $id) { if (wp_attachment_is_image($id)) { $result[]='#'.$id.' '.remove_files($id); } }
                 $result=implode(', ',$result); break;
-            default: $result=locked(0,function () use ($cmd,$ids) { return queue($cmd,$ids,isset($_POST['targets']) ? explode(',',sanitize_text_field(wp_unslash($_POST['targets']))) : null); });
+            default: $result=locked(0,function () use ($cmd,$ids,$requested) { return queue($cmd,$ids,$requested); });
         }
         wp_send_json_success($result);
     } catch (\RuntimeException $e) { wp_send_json_error($e->getMessage(),400); }
@@ -250,9 +281,9 @@ add_action('manage_media_custom_column',function ($col,$id) {
 add_filter('attachment_fields_to_edit',function ($fields,$post) {
     if (!wp_attachment_is_image($post->ID) || !current_user_can('manage_options')) { return $fields; }
     $html='';
-    foreach (array('convert'=>'Convert now','force'=>'Reconvert','restore'=>'Remove derivatives') as $cmd=>$label) {
+    foreach (array('convert'=>__('Convert now','qevora-imageflow'),'force'=>__('Reconvert','qevora-imageflow'),'restore'=>__('Remove derivatives','qevora-imageflow')) as $cmd=>$label) {
         $url=wp_nonce_url(add_query_arg(array('action'=>'qif_single','id'=>$post->ID,'cmd'=>$cmd),admin_url('admin-post.php')),'qif_'.$post->ID);
-        $html.='<a class="button" href="'.esc_url($url).'">'.esc_html($label).'</a> '.guidance_html($label,option_guidance($cmd));
+        $html.='<a class="button" href="'.esc_url($url).'">'.esc_html($label).'</a> '.wp_kses( guidance_html($label,option_guidance($cmd)), help_tags() );
     }
     $base=wp_get_upload_dir()['baseurl'];
     $map=get_post_meta($post->ID,'_qif_map',true);
@@ -264,7 +295,7 @@ add_filter('attachment_fields_to_edit',function ($fields,$post) {
         }
         break;
     }
-    $fields['qif']=array('label'=>'Qevora ImageFlow','input'=>'html','html'=>$html);
+    $fields['qif']=array('label'=>__('Qevora ImageFlow','qevora-imageflow'),'input'=>'html','html'=>$html);
     return $fields;
 },10,2);
 add_action('admin_post_qif_single',function () {

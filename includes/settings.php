@@ -19,9 +19,11 @@ function encoder($fmt) {
     return (class_exists('Imagick') && \Imagick::queryFormats(strtoupper($fmt))) || function_exists('image'.$fmt);
 }
 function defaults() {
-    return array('sources'=>array('jpeg','png'),'targets'=>array('webp'),'preferred'=>'webp','auto'=>1,'delivery'=>1,'elementor'=>1,'background'=>1,'smaller'=>1,'strip'=>1,'sizes'=>get_intermediate_image_sizes(),'webp'=>82,'avif'=>60,'jpeg'=>82,'png'=>6,'megabytes'=>24,'megapixels'=>24,'exclude'=>'');
+    return array('sources'=>array('jpeg','png'),'targets'=>array('webp'),'preferred'=>'webp','auto'=>1,'delivery'=>1,'elementor'=>1,'background'=>1,'smaller'=>1,'strip'=>1,'sizes'=>get_intermediate_image_sizes(),'webp'=>82,'avif'=>60,'jpeg'=>82,'png'=>6,'megabytes'=>24,'megapixels'=>24,'excluded_ids'=>'');
 }
-function settings() { return wp_parse_args(get_option('qif_settings',array()),defaults()); }
+function settings() { $saved=(array)get_option('qif_settings',array());
+    if (!isset($saved['excluded_ids']) && isset($saved['exclude'])) { $saved['excluded_ids']=$saved['exclude']; }
+    return wp_parse_args($saved,defaults()); }
 function sanitize($raw) {
     $raw = (array)$raw;
     $s = defaults();
@@ -33,6 +35,6 @@ function sanitize($raw) {
         $s[$k] = max($k==='png'?0:1,min($max,(int)($raw[$k] ?? $s[$k])));
     }
     $s['preferred'] = in_array($raw['preferred'] ?? '',$s['targets'],true)?$raw['preferred']:($s['targets'][0] ?? '');
-    $s['exclude'] = implode(',',wp_parse_id_list($raw['exclude'] ?? ''));
+    $s['excluded_ids'] = implode(',',wp_parse_id_list($raw['excluded_ids'] ?? ''));
     return $s;
 }

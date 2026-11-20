@@ -1,0 +1,19 @@
+name: WordPress Plugin Check
+on: [pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract and lint the installable plugin
+        run: |
+          version=$(awk '/^Stable tag:/ {print $3}' readme.txt)
+          unzip -q "dist/qevora-imageflow-v${version}.zip" -d build
+          find build -type f -name '*.php' -exec php -l '{}' \; > lint.txt
+          cat lint.txt
+          if grep -Eq 'Parse error|Errors parsing|Fatal error' lint.txt; then exit 1; fi
+      - uses: wordpress/plugin-check-action@v1
+        with:
+          build-dir: ./build/qevora-imageflow

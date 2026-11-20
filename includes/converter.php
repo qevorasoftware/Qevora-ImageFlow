@@ -11,12 +11,10 @@ function managed($id) {
 }
 function locked($id,$callback) {
     $dir = managed($id);
-    $handle = fopen($dir.'/.lock','c');
-    if (!$handle || !flock($handle,LOCK_EX|LOCK_NB)) {
-        if ($handle) { fclose($handle); }
-        return 'busy';
-    }
-    try { return $callback($dir); } finally { flock($handle,LOCK_UN); fclose($handle); }
+    $lock=new \SplFileObject($dir.'/.lock','c');
+    if (!$lock->flock(LOCK_EX|LOCK_NB)) { return 'busy'; }
+    try { return $callback($dir); } finally { $lock->flock(LOCK_UN); }
+
 }
 function remove_files($id) {
     try {
@@ -93,7 +91,7 @@ function convert($id,$force=false,$config=null) {
                 $bytes=filesize($src);
                 $from=array_search(wp_get_image_mime($src),formats(),true);
                 if (!$info || !$bytes) { $failed=true; $notes[]='Invalid image'; continue; }
-                if (in_array($id,wp_parse_id_list($s['exclude']),true) || !in_array($from,$s['sources'],true) || $bytes>$s['megabytes']*1048576 || $info[0]*$info[1]>$s['megapixels']*1000000) { $notes[]='Excluded by source or size settings'; continue; }
+                if (in_array($id,wp_parse_id_list($s['excluded_ids'] ?? $s['exclude'] ?? ''),true) || !in_array($from,$s['sources'],true) || $bytes>$s['megabytes']*1048576 || $info[0]*$info[1]>$s['megapixels']*1000000) { $notes[]='Excluded by source or size settings'; continue; }
                 $hash=hash_file('sha256',$src);
                 foreach ($s['targets'] as $to) {
                     if ($to===$from) { $notes[]='Same format'; continue; }
@@ -109,14 +107,19 @@ function convert($id,$force=false,$config=null) {
                             $out=wp_getimagesize($tmp);
                             if (!$out || $out[0]!==$info[0] || $out[1]!==$info[1] || wp_get_image_mime($tmp)!==formats()[$to]) { throw new \RuntimeException(); }
                             if ($s['smaller'] && filesize($tmp)>=$bytes) { $notes[]='Derivative is not smaller'; continue; }
-                            if (!chmod($tmp,fileperms($src)&0666) || !rename($tmp,$dest)) { throw new \RuntimeException(); }
+                            require_once ABSPATH.'wp-admin/includes/class-wp-filesystem-base.php';
+                            require_once ABSPATH.'wp-admin/includes/class-wp-filesystem-direct.php';
+                            $filesystem=new \WP_Filesystem_Direct(null);
+                            if (!$filesystem->chmod($tmp,fileperms($src)&0666)) { throw new \RuntimeException(); }
+                            // Both paths are in the same local directory. Replace atomically, including during forced conversion.
+                            if (!rename($tmp,$dest)) { throw new \RuntimeException(); } // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- WP_Filesystem::move may delete or copy before publishing.
                         }
                         clearstatcache(true,$dest);
                         $length=filesize($dest);
                         if (!$length || ($s['smaller'] && $length>=$bytes)) { $notes[]='Derivative is not smaller'; continue; }
                         $map[$rel][$to]=array('file'=>$name,'bytes'=>$length,'original'=>$bytes,'width'=>$info[0],'height'=>$info[1],'mtime'=>filemtime($src));
                     } catch (\Throwable $e) { $failed=true; $notes[]='Unable to encode or verify '.strtoupper($to); }
-                    finally { if ($tmp && is_file($tmp)) { unlink($tmp); } }
+                    finally { if ($tmp && is_file($tmp)) { wp_delete_file($tmp); } }
                 }
                 if (isset($map[$rel])) {
                     $v=$map[$rel][$s['preferred']] ?? reset($map[$rel]);
