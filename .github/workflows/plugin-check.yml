@@ -20,3 +20,8 @@ jobs:
         with:
           strict: 'true'
           build-dir: ./build/qevora-imageflow
+      - name: Verify conversion and template trials in WordPress
+        run: |
+          wp-env run cli wp plugin install elementor --activate
+          cp tests/workflow-smoke.php build/qevora-imageflow/tests/workflow-smoke.php
+          wp-env run cli wp eval-file wp-content/plugins/qevora-imageflow/tests/workflow-smoke.php
