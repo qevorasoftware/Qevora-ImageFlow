@@ -1,6 +1,8 @@
 # Qevora ImageFlow
 
-A WordPress plugin by Qevora Software. Version 1.0.7 is packaged for staging validation. See [acceptance results](tests/acceptance.md) for release coverage.
+A WordPress plugin by Qevora Software. Version 1.1.0 is packaged for staging validation. See [acceptance results](tests/acceptance.md) for release coverage.
+
+Open **Qevora ImageFlow → Documentation** for the complete [user guide](docs/guide.html), including the page inspector, request comparison, single-size repair, template baselines, and restore review.
 
 ## Start on an existing Elementor site
 

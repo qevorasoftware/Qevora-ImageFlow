@@ -2,7 +2,7 @@
 namespace Qevora\ImageFlow;
 defined('ABSPATH') || exit;
 require_once __DIR__.'/admin-help.php';
-function pages() { return array('home'=>__('Dashboard','qevora-imageflow'),'settings'=>__('Settings','qevora-imageflow'),'bulk'=>__('Bulk Converter','qevora-imageflow'),'media'=>__('Media Library Tools','qevora-imageflow'),'elementor'=>__('Elementor Integration','qevora-imageflow'),'logs'=>__('Logs & Tools','qevora-imageflow')); }
+function pages() { return array('home'=>__('Dashboard','qevora-imageflow'),'settings'=>__('Settings','qevora-imageflow'),'bulk'=>__('Bulk Converter','qevora-imageflow'),'media'=>__('Media Library Tools','qevora-imageflow'),'elementor'=>__('Elementor Integration','qevora-imageflow'),'logs'=>__('Logs & Tools','qevora-imageflow'),'inspector'=>__('Page Inspector','qevora-imageflow'),'docs'=>__('Documentation','qevora-imageflow')); }
 function page_url($key) { return admin_url('admin.php?page=qif-'.$key); }
 function h($str) { echo esc_html($str); }
 add_action('admin_menu',function () {
@@ -11,8 +11,8 @@ add_action('admin_menu',function () {
 });
 add_action('admin_enqueue_scripts',function () {
     if (strpos(get_current_screen()->id,'qif-')===false) { return; }
-    wp_enqueue_style('qif-admin',QIF_URL.'assets/admin.css',array(),'1.0.7');
-    wp_enqueue_script('qif-admin',QIF_URL.'assets/admin.js',array(),'1.0.7',true);
+    wp_enqueue_style('qif-admin',QIF_URL.'assets/admin.css',array(),'1.1.0');
+    wp_enqueue_script('qif-admin',QIF_URL.'assets/admin.js',array(),'1.1.0',true);
     wp_localize_script('qif-admin','qifAdmin',array('nonce'=>wp_create_nonce('qif_admin')));
 });
 add_action('admin_init',function () { register_setting('qif','qif_settings',array('sanitize_callback'=>__NAMESPACE__.'\\sanitize')); });
@@ -160,7 +160,12 @@ function page() {
     echo '<div class="wrap qif"><header class="qif-brand"><img class="qif-brand-mark" src="'.esc_url(QIF_URL.'assets/qevora-mark.png').'" alt=""><div class="qif-brand-type"><span>Qevora Software</span><h1>ImageFlow</h1></div></header><nav>';
     foreach (pages() as $k=>$title) { echo '<a '.($k===$key?'aria-current="page"':'').' href="'.esc_url(page_url($k)).'">'; h($title); echo '</a>'; }
     echo '</nav><h2 class="qif-title">'; h(pages()[$key] ?? 'Dashboard'); echo '</h2>'; if ($key!=='bulk') { echo '<p role="status" id="qif-status"></p>'; }
-    if ($key==='settings') { options_page(); }
+    if ($key==='docs') {
+        require __DIR__.'/../docs/guide.html';
+    } elseif ($key==='inspector') {
+        echo '<section><h2>Inspect a published page</h2><p>Open any frontend page while signed in, then choose <strong>Inspect page images</strong> in the WordPress toolbar. Open the widget or popup you want to inspect and select <strong>Scan viewport</strong>.</p>';
+        echo '<a class="button button-primary" href="'.esc_url(add_query_arg('qif_inspect','1',home_url('/'))).'">Inspect homepage</a> <a class="button" href="'.esc_url(page_url('docs').'#inspector').'">Read inspector guide</a></section>';
+    } elseif ($key==='settings') { options_page(); }
     elseif ($key==='home') {
         $a=stats('_qif_before'); $b=stats('_qif_after');
         echo '<div class="qif-grid cards">';
@@ -271,7 +276,12 @@ add_action('wp_ajax_qif_action',function () {
             case 'css':
                 if (!class_exists('\Elementor\Plugin') || empty(\Elementor\Plugin::$instance->files_manager) || !is_callable(array(\Elementor\Plugin::$instance->files_manager,'clear_cache'))) { throw new \RuntimeException('Elementor cache API unavailable.'); }
                 \Elementor\Plugin::$instance->files_manager->clear_cache(); $result='Elementor CSS cache cleared'; break;
+            case 'review_restore':
+                if (!$ids) { throw new \RuntimeException('Select attachments first.'); }
+                wp_send_json_success(array('usage'=>removal_review($ids),'confirm'=>wp_create_nonce('qif_remove_'.implode(',',$ids))));
+                break;
             case 'restore':
+                check_ajax_referer('qif_remove_'.implode(',',$ids),'confirm');
                 if (!$ids) { throw new \RuntimeException('Select attachments first.'); }
                 $result=array();
                 foreach ($ids as $id) { if (wp_attachment_is_image($id)) { $result[]='#'.$id.' '.remove_files($id); } }
@@ -314,6 +324,16 @@ add_action('admin_post_qif_single',function () {
     check_admin_referer('qif_'.$id);
     if (!current_user_can('manage_options') || !current_user_can('edit_post',$id) || !wp_attachment_is_image($id)) { wp_die('Access denied'); }
     $cmd=sanitize_key($_GET['cmd'] ?? '');
-    if ($cmd==='restore') { remove_files($id); } else { convert($id,$cmd==='force'); }
+    if ($cmd==='restore') {
+        $action='qif_confirm_remove_'.$id;
+        if (empty($_POST['qif_confirm'])) {
+            echo '<main><h1>Review recent image usage</h1><p>Recent scans for attachment #'.absint($id).'</p><pre>'.esc_html(removal_review(array($id))).'</pre><p>Confirm to remove generated files. The original stays in the Media Library.</p><form method="post">';
+            wp_nonce_field($action,'qif_confirm',false);
+            echo '<button type="submit">Remove derivatives</button> <a href="'.esc_url(get_edit_post_link($id,'raw')).'">Cancel</a></form></main>';
+            exit;
+        }
+        check_admin_referer($action,'qif_confirm');
+        remove_files($id);
+    } else { convert($id,$cmd==='force'); }
     wp_safe_redirect(admin_url('post.php?post='.$id.'&action=edit')); exit;
 });

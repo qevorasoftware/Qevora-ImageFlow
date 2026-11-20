@@ -41,6 +41,7 @@
         const candidates = set ? set.split(',').map(x => x.trim().split(/\s+/)) : [];
         const mapped = await Promise.all(candidates.map(c => lookup(c[0])));
         if (mapped.some(v => !v || v.mime !== main.mime) || img.getAttribute('src') !== src || img.getAttribute('srcset') !== set || img.dataset.qifOriginal) return;
+        if (window.qifInspector && set) img.dataset.qifOriginalSet = set;
         img.dataset.qifOriginal = src;
         const restore = () => {
             img.removeEventListener('error', restore);

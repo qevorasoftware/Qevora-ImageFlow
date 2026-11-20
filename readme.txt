@@ -3,7 +3,7 @@ Tags: images, webp, avif, elementor, optimization
 Requires at least: 6.4
 Requires PHP: 7.4
 Tested up to: 7.1
-Stable tag: 1.0.7
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -25,6 +25,9 @@ WordPress continues serving the original attachments. Metadata, settings and der
 See README.md and tests/acceptance.md in the package.
 
 == Changelog ==
+= 1.1.0 =
+* Inspect rendered images and CSS backgrounds, explain missing alternatives, repair registered sizes, review paired requests and recent usage, and compare viewport baselines.
+* Added an in-plugin documentation page.
 = 1.0.7 =
 * Use the Qevora gradient logo and responsive branding across admin pages.
 = 1.0.6 =

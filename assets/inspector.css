@@ -1,0 +1,4 @@
+#qif-audit{position:fixed;z-index:999999;bottom:12px;right:12px;width:min(435px,calc(100% - 24px));max-height:58vh;overflow:auto;background:#fff;color:#202943;box-shadow:0 7px 35px #151d3940;border:1px solid #bbc4d7;border-radius:12px;font:14px/1.45 system-ui,sans-serif;text-align:left}
+.qif-audit-head{display:flex;justify-content:space-between;padding:12px 16px;background:#1e2848;color:white}.qif-audit-head a{color:white}.qif-audit-body{padding:12px 16px}.qif-audit-body p{margin:6px 0 10px}
+#qif-audit button{background:#f3f2ff;border:1px solid #c8c7e6;color:#332677;border-radius:6px;padding:5px 9px;font:inherit;cursor:pointer;margin:2px}#qif-audit button[aria-pressed=true]{background:#443598;color:white}
+#qif-audit summary{cursor:pointer;padding:8px 0;font-weight:600}#qif-audit details{border-top:1px solid #dfe2ec}#qif-audit dl{margin:4px 0}#qif-audit dt{font-weight:600}#qif-audit dd{margin:0 0 6px;overflow-wrap:anywhere}#qif-audit-results{overflow-wrap:anywhere}

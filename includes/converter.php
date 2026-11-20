@@ -69,10 +69,10 @@ function encode($src,$tmp,$from,$to,$s) {
     }
     return '';
 }
-function convert($id,$force=false,$config=null) {
+function convert($id,$force=false,$config=null,$only=null) {
     if (!wp_attachment_is_image($id)) { return 'skipped'; }
     try {
-        return locked($id,function ($dir) use ($id,$force,$config) {
+        return locked($id,function ($dir) use ($id,$force,$config,$only) {
             $s=$config ?? settings();
             $meta=wp_get_attachment_metadata($id);
             $main=get_attached_file($id,true);
@@ -81,12 +81,14 @@ function convert($id,$force=false,$config=null) {
                 if (in_array($size,$s['sizes'],true)) { $files[]=dirname($main).'/'.basename($item['file']); }
             }
             if (!empty($meta['original_image'])) { $files[]=dirname($main).'/'.basename($meta['original_image']); }
-            $old=(array)get_post_meta($id,'_qif_map',true);
-            $map=array(); $notes=array(); $before=0; $after=0; $failed=false;
+            $old=get_post_meta($id,'_qif_map',true);
+            $old=is_array($old)?$old:array();
+            $map=$only===null?array():$old; $notes=array(); $before=0; $after=0; $failed=false;
             foreach (array_unique($files) as $file) {
                 $src=$file?realpath($file):false;
                 if (!$src || strpos($src,root_dir().DIRECTORY_SEPARATOR)!==0 || !is_readable($src)) { $failed=true; $notes[]='Source unavailable'; continue; }
                 $rel=wp_normalize_path(substr($src,strlen(root_dir())+1));
+                if ($only!==null && $only!==$rel) { continue; }
                 $info=wp_getimagesize($src);
                 $bytes=filesize($src);
                 $from=array_search(wp_get_image_mime($src),formats(),true);
@@ -122,10 +124,12 @@ function convert($id,$force=false,$config=null) {
                     finally { if ($tmp && is_file($tmp)) { wp_delete_file($tmp); } }
                 }
                 if (isset($map[$rel])) {
-                    $v=$map[$rel][$s['preferred']] ?? reset($map[$rel]);
-                    $before+=$bytes; $after+=$v['bytes'];
                     update_option('qif_url_'.md5($rel),$id,false);
                 }
+            }
+            foreach ($map as $variants) {
+                $v=$variants[$s['preferred']] ?? reset($variants);
+                $before+=$v['original']; $after+=$v['bytes'];
             }
             foreach (array_diff(array_keys($old),array_keys($map)) as $rel) { delete_option('qif_url_'.md5($rel)); }
             $status=$failed?'failed':($map?'converted':'skipped');

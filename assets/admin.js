@@ -59,6 +59,14 @@
         try {
             const body=new URLSearchParams({action:'qif_action',_ajax_nonce:qifAdmin.nonce,cmd,ids:ids.join(',')});
             if (scope && ['start','selected','retry','force'].includes(cmd)) body.set('targets',targets().join(','));
+            if(cmd==='restore'){
+                const preview=new URLSearchParams(body); preview.set('cmd','review_restore');
+                const response=await fetch(ajaxurl,{method:'POST',body:preview});
+                const review=await response.json();
+                if(!review.success) throw Error(review.data);
+                if(!window.confirm('Remove derivatives for '+ids.length+' attachment(s)?\n\nRecent scan matches\n'+review.data.usage)) return;
+                body.set('confirm',review.data.confirm);
+            }
             const res=await fetch(ajaxurl,{method:'POST',body});
             const {success,data}=await res.json();
             if (token !== generation) return;

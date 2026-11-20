@@ -38,3 +38,4 @@ try {
         assert.match(dom,/<body data-verified="yes">/);
     }
 } finally { rmSync(dir,{recursive:true,force:true}); }
+require('./inspector.cjs');
