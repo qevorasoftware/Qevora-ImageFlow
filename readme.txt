@@ -3,7 +3,7 @@ Tags: images, webp, avif, elementor, optimization
 Requires at least: 6.4
 Requires PHP: 7.4
 Tested up to: 7.1
-Stable tag: 1.3.0
+Stable tag: 1.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -25,6 +25,8 @@ WordPress continues serving the original attachments. Metadata, settings and der
 See README.md and tests/acceptance.md in the package.
 
 == Changelog ==
+= 1.4.0 =
+* Label image and video uploads using supported embedded AI origin metadata, review filtered Media Library lists, and set manual overrides.
 = 1.3.0 =
 * Scan image and video file sizes, compare storage and optimization priorities, and review the largest attachments.
 = 1.2.0 =

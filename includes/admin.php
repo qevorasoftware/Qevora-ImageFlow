@@ -2,7 +2,7 @@
 namespace Qevora\ImageFlow;
 defined('ABSPATH') || exit;
 require_once __DIR__.'/admin-help.php';
-function pages() { return array('home'=>__('Dashboard','qevora-imageflow'),'settings'=>__('Settings','qevora-imageflow'),'bulk'=>__('Bulk Converter','qevora-imageflow'),'media'=>__('Media Library Tools','qevora-imageflow'),'elementor'=>__('Elementor Integration','qevora-imageflow'),'logs'=>__('Logs & Tools','qevora-imageflow'),'inspector'=>__('Page Inspector','qevora-imageflow'),'audit'=>__('Media Size Report','qevora-imageflow'),'workflow'=>__('Image Workbench','qevora-imageflow'),'docs'=>__('Documentation','qevora-imageflow')); }
+function pages() { return array('home'=>__('Dashboard','qevora-imageflow'),'settings'=>__('Settings','qevora-imageflow'),'bulk'=>__('Bulk Converter','qevora-imageflow'),'media'=>__('Media Library Tools','qevora-imageflow'),'elementor'=>__('Elementor Integration','qevora-imageflow'),'logs'=>__('Logs & Tools','qevora-imageflow'),'inspector'=>__('Page Inspector','qevora-imageflow'),'origin'=>__('AI Media','qevora-imageflow'),'audit'=>__('Media Size Report','qevora-imageflow'),'workflow'=>__('Image Workbench','qevora-imageflow'),'docs'=>__('Documentation','qevora-imageflow')); }
 function page_url($key) { return admin_url('admin.php?page=qif-'.$key); }
 function h($str) { echo esc_html($str); }
 add_action('admin_menu',function () {
@@ -162,7 +162,7 @@ function page() {
     echo '<div class="wrap qif"><header class="qif-brand"><img class="qif-brand-mark" src="'.esc_url(QIF_URL.'assets/qevora-mark.png').'" alt=""><div class="qif-brand-type"><span>Qevora Software</span><h1>ImageFlow</h1></div></header><nav>';
     foreach (pages() as $k=>$title) { echo '<a '.($k===$key?'aria-current="page"':'').' href="'.esc_url(page_url($k)).'">'; h($title); echo '</a>'; }
     echo '</nav><h2 class="qif-title">'; h(pages()[$key] ?? 'Dashboard'); echo '</h2>'; if ($key!=='bulk') { echo '<p role="status" id="qif-status"></p>'; }
-    if ($key==='audit') { audit_panel(); } elseif ($key==='workflow') { workflow_screen(); } elseif ($key==='docs') {
+    if ($key==='origin') { origin_page(); } elseif ($key==='audit') { audit_panel(); } elseif ($key==='workflow') { workflow_screen(); } elseif ($key==='docs') {
         require __DIR__.'/../docs/guide.html';
     } elseif ($key==='inspector') {
         echo '<section><h2>Inspect a published page</h2><p>Open any frontend page while signed in, then choose <strong>Inspect page images</strong> in the WordPress toolbar. Open the widget or popup you want to inspect and select <strong>Scan viewport</strong>.</p>';

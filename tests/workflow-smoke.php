@@ -49,3 +49,32 @@ if (1!==$qif_video_groups['medium']['count'] || 1!==$qif_video_groups['high']['c
     throw new RuntimeException('Media size report totals or thresholds differ from the fixture.');
 }
 WP_CLI::success('Verified image and video size audit, threshold boundaries and unknown sizes.');
+
+$qif_xml='<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:source="http://iptc.org/std/Iptc4xmpExt/2008-02-29/" source:DigitalSourceType="http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia"/></rdf:RDF>';
+$qif_payload="XML:com.adobe.xmp\0\0\0\0\0".$qif_xml;
+$qif_chunk=pack('N',strlen($qif_payload)).'iTXt'.$qif_payload.pack('N',crc32('iTXt'.$qif_payload));
+$qif_png=file_get_contents($fixture);
+$qif_marked=dirname($fixture).'/imageflow-origin.png';
+file_put_contents($qif_marked,substr($qif_png,0,-12).$qif_chunk.substr($qif_png,-12));
+$qif_photo=wp_insert_attachment(array('post_mime_type'=>'image/png','post_status'=>'inherit'),$qif_marked);
+wp_update_attachment_metadata($qif_photo,wp_generate_attachment_metadata($qif_photo,$qif_marked));
+if ('generated'!==Qevora\ImageFlow\origin_state($qif_photo)['key']) { throw new RuntimeException('Upload hook missed generated PNG'); }
+$qif_uuid=hex2bin('be7acfcb97a942e89c71999491e3afac');
+$qif_xml=str_replace('trainedAlgorithmicMedia','compositeWithTrainedAlgorithmicMedia',$qif_xml);
+$qif_movie=dirname($fixture).'/imageflow-origin.mp4';
+file_put_contents($qif_movie,pack('N',16).'ftypisom'.pack('N',0).pack('N',24+strlen($qif_xml)).'uuid'.$qif_uuid.$qif_xml);
+$qif_clip=wp_insert_attachment(array('post_mime_type'=>'video/mp4','post_status'=>'inherit'),$qif_movie);
+if ('edited'!==Qevora\ImageFlow\inspect_origin($qif_clip)) { throw new RuntimeException('Video XMP edit declaration missed'); }
+file_put_contents($qif_movie,pack('N',16).'ftypisom'.pack('N',0).pack('N',8+strlen($qif_xml)).'mdat'.$qif_xml);
+if ('unknown'!==Qevora\ImageFlow\inspect_origin($qif_clip)) { throw new RuntimeException('Video payload incorrectly treated as metadata'); }
+$qif_fields=array('qif_origin_nonce'=>wp_create_nonce('qif_origin_'.$qif_photo),'qif_origin'=>'human');
+apply_filters('attachment_fields_to_save',array('ID'=>$qif_photo),$qif_fields);
+Qevora\ImageFlow\inspect_origin($qif_photo);
+foreach (array('human'=>true,'generated'=>false) as $qif_key=>$qif_expected) {
+    $qif_ids=get_posts(array('post_type'=>'attachment','post_status'=>'inherit','fields'=>'ids','post__in'=>array($qif_photo),'meta_query'=>array(Qevora\ImageFlow\origin_query($qif_key))));
+    if ((bool)$qif_ids!==$qif_expected) { throw new RuntimeException('Origin filter did not honor manual override'); }
+}
+$qif_fields['qif_origin']='';
+apply_filters('attachment_fields_to_save',array('ID'=>$qif_photo),$qif_fields);
+if ('generated'!==Qevora\ImageFlow\origin_state($qif_photo)['key']) { throw new RuntimeException('Clearing override did not restore automatic origin'); }
+WP_CLI::success('Verified AI origin on upload, video metadata isolation, manual labels and filtered lists.');

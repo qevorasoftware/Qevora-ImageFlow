@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Qevora ImageFlow
  * Description: Generate local image alternatives and deliver them in WordPress and Elementor.
- * Version: 1.3.0
+ * Version: 1.4.0
  * Requires at least: 6.4
  * Requires PHP: 7.4
  * Author: Qevora Software
@@ -18,6 +18,7 @@ require_once __DIR__.'/includes/converter.php';
 require_once __DIR__.'/includes/delivery.php';
 require_once __DIR__.'/includes/admin.php';
 require_once __DIR__.'/includes/media-audit.php';
+require_once __DIR__.'/includes/origin.php';
 require_once __DIR__.'/includes/inspector.php';
 add_filter('wp_generate_attachment_metadata', function ($meta, $id) {
     if (settings()['auto'] && wp_attachment_is_image($id) && !wp_next_scheduled('qif_convert', array($id))) {
