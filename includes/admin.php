@@ -1,6 +1,7 @@
 <?php
 namespace Qevora\ImageFlow;
 defined('ABSPATH') || exit;
+require_once __DIR__.'/admin-help.php';
 function pages() { return array('home'=>'Dashboard','settings'=>'Settings','bulk'=>'Bulk Converter','media'=>'Media Library Tools','elementor'=>'Elementor Integration','logs'=>'Logs & Tools'); }
 function page_url($key) { return admin_url('admin.php?page=qif-'.$key); }
 function h($str) { echo esc_html(translate($str,'qevora-imageflow')); }
@@ -10,16 +11,22 @@ add_action('admin_menu',function () {
 });
 add_action('admin_enqueue_scripts',function () {
     if (strpos(get_current_screen()->id,'qif-')===false) { return; }
-    wp_enqueue_style('qif-admin',QIF_URL.'assets/admin.css',array(),'1.0.3');
-    wp_enqueue_script('qif-admin',QIF_URL.'assets/admin.js',array(),'1.0.3',true);
+    wp_enqueue_style('qif-admin',QIF_URL.'assets/admin.css',array(),'1.0.4');
+    wp_enqueue_script('qif-admin',QIF_URL.'assets/admin.js',array(),'1.0.4',true);
     wp_localize_script('qif-admin','qifAdmin',array('nonce'=>wp_create_nonce('qif_admin')));
 });
 add_action('admin_init',function () { register_setting('qif','qif_settings',array('sanitize_callback'=>__NAMESPACE__.'\\sanitize')); });
 function check($key,$label,$value=null,$disabled=false) {
     $s=settings();
     $on=$value===null?$s[$key]:in_array($value,$s[$key],true);
-    echo '<label class="qif-check"><input type="checkbox" name="qif_settings['.esc_attr($key).']'.($value===null?'':'[]').'" value="'.esc_attr($value ?? 1).'" '.checked($on && !$disabled,true,false).' '.disabled($disabled,true,false).'> ';
+    echo '<div class="qif-field"><label class="qif-check"><input type="checkbox" name="qif_settings['.esc_attr($key).']'.($value===null?'':'[]').'" value="'.esc_attr($value ?? 1).'" '.checked($on && !$disabled,true,false).' '.disabled($disabled,true,false).'> ';
     h($label); if ($disabled) { echo ' <small>'; h('Codec unavailable'); echo '</small>'; } echo '</label>';
+    if ($key==='sizes') {
+        $note=sprintf(__('Generate an alternative for the %s size when WordPress has created it. Enable sizes used by your theme or galleries so smaller screens can load smaller images.', 'qevora-imageflow'),$value);
+    } elseif ($key==='sources' || $key==='targets') {
+        $note=format_guidance($value,$key==='sources',$disabled);
+    } else { $note=option_guidance($key); }
+    echo guidance_html($label,$note,$disabled).'</div>';
 }
 function options_page() {
     $s=settings();
@@ -30,19 +37,19 @@ function options_page() {
     foreach (outputs() as $key) { check('targets',strtoupper($key),$key,!encoder($key)); }
     echo '</div><p><label>'; h('Preferred delivery format'); echo ' <select name="qif_settings[preferred]">';
     foreach (outputs() as $key) { echo '<option '.selected($key,$s['preferred'],false).' '.disabled(!encoder($key),true,false).' value="'.esc_attr($key).'">'.esc_html(strtoupper($key)).'</option>'; }
-    echo '</select></label></p><p>'; h('Same-format outputs are skipped. Images with transparency are retained when JPEG would lose alpha.'); echo '</p></section><section><h2>'; h('Conversion & delivery'); echo '</h2>';
+    echo '</select></label></p>'.guidance_html('Preferred delivery format',option_guidance('preferred')).'<p>'; h('Same-format outputs are skipped. Images with transparency are retained when JPEG would lose alpha.'); echo '</p></section><section><h2>'; h('Conversion & delivery'); echo '</h2>';
     foreach (array('auto'=>'Convert new uploads in the background','smaller'=>'Keep only smaller alternatives','strip'=>'Strip metadata where supported','delivery'=>'Deliver optimized images','elementor'=>'Enable delivery on Elementor sites','background'=>'Optimize supported CSS backgrounds on Elementor sites') as $k=>$label) { check($k,$label); }
     echo '<h3>'; h('Intermediate image sizes'); echo '</h3><div class="qif-grid">';
     foreach (get_intermediate_image_sizes() as $size) { check('sizes',$size,$size); }
     echo '</div></section><section><h2>'; h('Quality & limits'); echo '</h2><div class="qif-grid">';
     foreach (array('webp'=>'WebP quality','avif'=>'AVIF quality','jpeg'=>'JPEG quality','png'=>'PNG compression','megabytes'=>'Maximum MB','megapixels'=>'Maximum megapixels') as $k=>$label) {
         $max=array('png'=>9,'megabytes'=>128,'megapixels'=>64)[$k] ?? 100;
-        echo '<label>'; h($label); echo '<input type="number" min="'.($k==='png'?0:1).'" max="'.intval($max).'" name="qif_settings['.esc_attr($k).']" value="'.intval($s[$k]).'"></label>';
+        echo '<div class="qif-field"><label>'; h($label); echo '<input type="number" min="'.($k==='png'?0:1).'" max="'.intval($max).'" name="qif_settings['.esc_attr($k).']" value="'.intval($s[$k]).'"></label>'.guidance_html($label,option_guidance($k)).'</div>';
     }
-    echo '</div><p><label>'; h('Excluded attachment IDs (comma-separated)'); echo ' <input name="qif_settings[exclude]" value="'.esc_attr($s['exclude']).'"></label></p><p>'; h('Run bulk conversion after changing output, quality, size or exclusion settings.'); echo '</p></section>'; submit_button(); echo '</form>';
+    echo '</div><p><label>'; h('Excluded attachment IDs (comma-separated)'); echo ' <input name="qif_settings[exclude]" value="'.esc_attr($s['exclude']).'"></label></p>'.guidance_html('Excluded IDs',option_guidance('exclude')).'<p>'; h('Run bulk conversion after changing output, quality, size or exclusion settings.'); echo '</p></section>'; submit_button(); echo '</form>';
 }
 function button($cmd,$label,$id=0) {
-    echo '<button type="button" class="button" data-qif="'.esc_attr($cmd).'" data-id="'.absint($id).'">'; h($label); echo '</button> ';
+    echo '<div class="qif-help-action"><button type="button" class="button" data-qif="'.esc_attr($cmd).'" data-id="'.absint($id).'">'; h($label); echo '</button>'.guidance_html($label,option_guidance($cmd)).'</div>';
 }
 function output_labels($id) {
     $map=get_post_meta($id,'_qif_map',true);
@@ -59,12 +66,13 @@ function output_labels($id) {
 function bulk_form() {
     $s=settings();
     echo '<section><h2>1. Choose images</h2><label>Images to convert <select id="qif-scope"><option value="selected">Checked images</option><option value="start">All eligible images in the library</option><option value="retry">Failed eligible images</option><option value="force">Force reconvert checked images</option></select></label>';
+    echo guidance_html('Images to convert',option_guidance('scope'));
     echo '<p>Enabled source formats: '.esc_html(strtoupper(implode(', ',$s['sources']))).'.</p>';
     media_rows('bulk');
     echo '</section><section><h2>2. Choose output formats</h2><fieldset id="qif-targets"><legend>Convert images to</legend>';
     foreach (outputs() as $format) {
         $available=encoder($format);
-        echo '<label class="qif-format"><input type="checkbox" value="'.esc_attr($format).'" '.checked($available && in_array($format,$s['targets'],true),true,false).' '.disabled(!$available,true,false).'> '.esc_html(strtoupper($format)).($available?'':' (encoder unavailable)').'</label>';
+        echo '<div class="qif-help-action"><label class="qif-format"><input type="checkbox" value="'.esc_attr($format).'" '.checked($available && in_array($format,$s['targets'],true),true,false).' '.disabled(!$available,true,false).'> '.esc_html(strtoupper($format)).($available?'':' (encoder unavailable)').'</label>'.guidance_html(strtoupper($format),format_guidance($format,false,!$available),!$available).'</div>';
     }
     echo '</fieldset><p>Choose one or more formats for this batch. Settings controls the preferred format delivered to visitors.</p></section><section><h2>3. Review and convert</h2><p id="qif-review" aria-live="polite"></p>';
     button('launch','Start conversion');
@@ -90,11 +98,11 @@ function media_rows($key) {
     echo '<div class="qif-list-title"><h3>'; h('Image list'); echo '</h3><span>'.esc_html(number_format_i18n($query->found_posts)).' '.esc_html(_n('image','images',$query->found_posts,'qevora-imageflow')).'</span></div>';
     echo '<details class="qif-filters" '.($filtered ? 'open' : '').'><summary>'; h('Filter image list'); echo '</summary>';
     echo '<form method="get" action="'.esc_url(admin_url('admin.php')).'"><input type="hidden" name="page" value="qif-'.esc_attr($key).'">';
-    echo '<label>Original format<select name="fmt"><option value="">All formats</option>';
+    echo '<div><label>Original format<select name="fmt"><option value="">All formats</option>';
     foreach (formats() as $k=>$val) { echo '<option '.selected($mime,$k,false).' value="'.esc_attr($k).'">'.esc_html(strtoupper($k)).'</option>'; }
-    echo '</select></label><label>Conversion status<select name="state"><option value="">Any status</option>';
+    echo '</select></label>'.guidance_html('Original format',option_guidance('fmt')).'</div><div><label>Conversion status<select name="state"><option value="">Any status</option>';
     foreach (array('converted','failed','skipped') as $k) { echo '<option value="'.esc_attr($k).'" '.selected($state,$k,false).'>'.esc_html(ucfirst($k)).'</option>'; }
-    echo '</select></label><label>Uploaded in<input type="month" name="month" value="'.esc_attr($month).'"></label><button class="button">Apply filters</button>';
+    echo '</select></label>'.guidance_html('Conversion status',option_guidance('state')).'</div><div><label>Uploaded in<input type="month" name="month" value="'.esc_attr($month).'"></label>'.guidance_html('Uploaded in',option_guidance('month')).'</div><button class="button">Apply filters</button>';
     if ($filtered) { echo '<a href="'.esc_url(page_url($key)).'">Clear filters</a>'; }
     echo '</form></details><div class="qif-list-scroll" tabindex="0" role="region" aria-label="Image list"><table class="qif-list-table"><thead><tr><th><input type="checkbox" aria-label="Select visible page" id="qif-all"></th><th>Image</th><th>Original</th><th>Generated</th><th>Status</th><th>Last result (UTC)</th></tr></thead><tbody>';
     foreach ($query->posts as $p) {
@@ -244,7 +252,7 @@ add_filter('attachment_fields_to_edit',function ($fields,$post) {
     $html='';
     foreach (array('convert'=>'Convert now','force'=>'Reconvert','restore'=>'Remove derivatives') as $cmd=>$label) {
         $url=wp_nonce_url(add_query_arg(array('action'=>'qif_single','id'=>$post->ID,'cmd'=>$cmd),admin_url('admin-post.php')),'qif_'.$post->ID);
-        $html.='<a class="button" href="'.esc_url($url).'">'.esc_html($label).'</a> ';
+        $html.='<a class="button" href="'.esc_url($url).'">'.esc_html($label).'</a> '.guidance_html($label,option_guidance($cmd));
     }
     $base=wp_get_upload_dir()['baseurl'];
     $map=get_post_meta($post->ID,'_qif_map',true);

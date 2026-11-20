@@ -34,3 +34,16 @@
 .qif-list-table .qif-empty{text-align:center;padding:26px}
 .qif-pages{padding:12px 18px;border-top:1px solid #e1e5ec}
 @media(max-width:782px){.qif-filters label{flex:1 1 130px}.qif-list-title{padding-top:12px}.qif-list-table th,.qif-list-table td{padding:9px}}
+
+.qif-field{min-width:0;padding:10px 12px;border:1px solid #e0e3ed;border-radius:9px;background:white}
+.qif-field+.qif-field{margin-top:5px}
+.qif-grid>.qif-field{margin:0;align-self:start}
+.qif-field .qif-check{padding:0}
+.qif-help{margin:6px 0 0;color:#384564;max-width:65ch}
+.qif .qif-help summary{display:list-item;cursor:pointer;width:fit-content;color:#504397;font-size:12px;font-weight:550;padding:3px 2px;text-decoration:underline;text-underline-offset:3px}
+.qif .qif-help p{margin:5px 0 0;padding:9px 11px;background:#f5f4fb;border-inline-start:3px solid #9c8adc;border-radius:0 6px 6px 0;font-size:13px;line-height:1.55;overflow-wrap:anywhere}
+.qif-help-action{display:inline-block;vertical-align:top;margin:0 8px 8px 0;max-width:100%}
+.qif-help-action:has(>button[hidden]){display:none}
+.qif-help-action:has(details[open]){max-width:min(100%,340px)}
+.qif .qif-filters form{align-items:flex-start}
+.qif .qif-filters form>.button{align-self:flex-start;margin-top:21px}

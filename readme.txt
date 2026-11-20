@@ -2,7 +2,7 @@
 Tags: images, webp, avif, elementor, optimization
 Requires at least: 6.4
 Requires PHP: 7.4
-Stable tag: 1.0.3
+Stable tag: 1.0.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -24,6 +24,8 @@ WordPress continues serving the original attachments. Metadata, settings and der
 See README.md and tests/acceptance.md in the package.
 
 == Changelog ==
+= 1.0.4 =
+* Add expandable guidance for settings, output choices, image list filters and conversion tools.
 = 1.0.3 =
 * Group image list filters and add thumbnails, status indicators and clearer row selection.
 = 1.0.2 =
