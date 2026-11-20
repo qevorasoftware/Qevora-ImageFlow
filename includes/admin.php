@@ -128,6 +128,7 @@ function media_rows($key) {
     echo '</div>';
 }
 function invalidate_total($meta_id,$object_id,$key) {
+    if ('_qif_after'===$key) { delete_transient('qif_has_generated'); }
     if (in_array($key,array('_qif_before','_qif_after'),true)) { wp_cache_delete($key,'qif_totals'); }
 }
 add_action('updated_post_meta',__NAMESPACE__.'\\invalidate_total',10,3);

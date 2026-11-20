@@ -6,7 +6,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Extract and lint the installable plugin
         run: |
           version=$(awk '/^Stable tag:/ {print $3}' readme.txt)
@@ -16,4 +16,5 @@ jobs:
           if grep -Eq 'Parse error|Errors parsing|Fatal error' lint.txt; then exit 1; fi
       - uses: wordpress/plugin-check-action@v1
         with:
+          strict: 'true'
           build-dir: ./build/qevora-imageflow

@@ -25,9 +25,21 @@ add_action('rest_api_init',function () {
         }
     ));
 });
+function has_generated_files() {
+    // Cache the existence check so previously converted libraries also work immediately after upgrading.
+    $available=get_transient('qif_has_generated');
+    if (false===$available) {
+        $ids=get_posts(array('post_type'=>'attachment','post_status'=>'inherit','fields'=>'ids',
+            'posts_per_page'=>1,'no_found_rows'=>true,'orderby'=>'none','cache_results'=>false,
+            'meta_query'=>array(array('key'=>'_qif_after','value'=>0,'compare'=>'>','type'=>'NUMERIC')))); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Cached single-result check for an existing derivative.
+        $available=$ids ? 'yes' : 'no';
+        set_transient('qif_has_generated',$available,HOUR_IN_SECONDS);
+    }
+    return 'yes'===$available;
+}
 add_action('wp_enqueue_scripts',function () {
     $s=settings();
-    if (!$s['delivery'] || (did_action('elementor/loaded') && !$s['elementor'])) { return; }
-    wp_enqueue_script('qif-delivery',QIF_URL.'assets/delivery.js',array(),'1.0.0',true);
+    if (!$s['delivery'] || (did_action('elementor/loaded') && !$s['elementor']) || !has_generated_files()) { return; }
+    wp_enqueue_script('qif-delivery',QIF_URL.'assets/delivery.js',array(),'1.0.5',array('strategy'=>'defer','in_footer'=>true));
     wp_localize_script('qif-delivery','qifDelivery',array('base'=>trailingslashit(wp_get_upload_dir()['baseurl']),'api'=>rest_url('qevora-imageflow/v1/resolve'),'css'=>did_action('elementor/loaded') && $s['background']));
 });

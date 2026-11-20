@@ -12,9 +12,10 @@
 namespace Qevora\ImageFlow;
 defined('ABSPATH') || exit;
 define('QIF_URL', plugin_dir_url(__FILE__));
-foreach (array('settings','converter','delivery','admin') as $qif_module) {
-    require_once __DIR__ . '/includes/' . $qif_module . '.php';
-}
+require_once __DIR__.'/includes/settings.php';
+require_once __DIR__.'/includes/converter.php';
+require_once __DIR__.'/includes/delivery.php';
+require_once __DIR__.'/includes/admin.php';
 add_filter('wp_generate_attachment_metadata', function ($meta, $id) {
     if (settings()['auto'] && wp_attachment_is_image($id) && !wp_next_scheduled('qif_convert', array($id))) {
         wp_schedule_single_event(time() + 5, 'qif_convert', array($id));
