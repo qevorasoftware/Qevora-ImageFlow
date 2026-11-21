@@ -78,3 +78,12 @@ $qif_fields['qif_origin']='';
 apply_filters('attachment_fields_to_save',array('ID'=>$qif_photo),$qif_fields);
 if ('generated'!==Qevora\ImageFlow\origin_state($qif_photo)['key']) { throw new RuntimeException('Clearing override did not restore automatic origin'); }
 WP_CLI::success('Verified AI origin on upload, video metadata isolation, manual labels and filtered lists.');
+
+// The notice hooks still execute, but third-party markup must not reach ImageFlow pages.
+Qevora\ImageFlow\configure_page_notices();
+add_action('admin_notices',static function () { echo '<div>Foreign scheduler message</div>'; });
+ob_start(); do_action('admin_notices'); $qif_notices=ob_get_clean();
+if (false!==strpos($qif_notices,'Foreign scheduler message')) { throw new RuntimeException('Unexpected external notice'); }
+add_settings_error('qif_settings','qif_test','ImageFlow validation example','error');
+ob_start(); Qevora\ImageFlow\settings_notices(); $qif_notices=ob_get_clean();
+if (false===strpos($qif_notices,'ImageFlow validation example')) { throw new RuntimeException('Missing ImageFlow error'); }

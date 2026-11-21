@@ -6,12 +6,36 @@ function pages() { return array('home'=>__('Dashboard','qevora-imageflow'),'sett
 function page_url($key) { return admin_url('admin.php?page=qif-'.$key); }
 function h($str) { echo esc_html($str); }
 add_action('admin_menu',function () {
-    add_menu_page('Qevora ImageFlow','Qevora ImageFlow','manage_options','qif-home',__NAMESPACE__.'\\page','dashicons-format-image');
-    foreach (pages() as $key=>$title) { add_submenu_page('qif-home',$title,$title,'manage_options','qif-'.$key,__NAMESPACE__.'\\page'); }
+    $screens=array(add_menu_page('Qevora ImageFlow','Qevora ImageFlow','manage_options','qif-home',__NAMESPACE__.'\\page','dashicons-format-image'));
+    foreach (pages() as $key=>$title) {
+        $screens[]=add_submenu_page('qif-home',$title,$title,'manage_options','qif-'.$key,__NAMESPACE__.'\\page');
+    }
+    foreach (array_unique(array_filter($screens)) as $screen) {
+        add_action('load-'.$screen,__NAMESPACE__.'\\configure_page_notices');
+    }
 });
+// Only registered ImageFlow screens receive this class. Keep other plugins' hooks running.
+function configure_page_notices() {
+    add_filter('admin_body_class',static function ($classes) { return $classes.' qif-admin-screen '; });
+    foreach (array('admin_notices','all_admin_notices') as $hook) {
+        add_action($hook,static function () { ob_start(); },PHP_INT_MIN);
+        add_action($hook,static function () { ob_end_clean(); },PHP_INT_MAX);
+    }
+}
+
+function settings_notices() {
+    $messages=get_settings_errors('qif_settings');
+    if (!$messages && isset($_GET['settings-updated']) && 'true'===sanitize_key(wp_unslash($_GET['settings-updated']))) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only confirmation after the Settings API redirect.
+        $messages[]=array('type'=>'success','message'=>__('ImageFlow settings saved.','qevora-imageflow'));
+    }
+    foreach ($messages as $message) {
+        $type=in_array($message['type'],array('success','warning','info','error'),true)?$message['type']:'info';
+        echo '<div class="notice inline qif-notice notice-'.esc_attr($type).'"><p>'.wp_kses_post($message['message']).'</p></div>';
+    }
+}
 add_action('admin_enqueue_scripts',function () {
     if (strpos(get_current_screen()->id,'qif-')===false) { return; }
-    wp_enqueue_style('qif-admin',QIF_URL.'assets/admin.css',array(),'1.4.1');
+    wp_enqueue_style('qif-admin',QIF_URL.'assets/admin.css',array(),'1.4.2');
     wp_enqueue_script('qif-admin',QIF_URL.'assets/admin.js',array(),'1.3.0',true);
     wp_enqueue_script('qif-workbench',QIF_URL.'assets/workbench.js',array('qif-admin'),'1.3.0',true);
     wp_localize_script('qif-admin','qifAdmin',array('nonce'=>wp_create_nonce('qif_admin')));
@@ -31,6 +55,7 @@ function check($key,$label,$value=null,$disabled=false) {
     echo wp_kses( guidance_html($label,$note,$disabled), help_tags() ).'</div>';
 }
 function options_page() {
+    settings_notices();
     $s=settings();
     echo '<form method="post" action="options.php">'; settings_fields('qif');
     echo '<section><h2>'; esc_html_e('Image formats','qevora-imageflow'); echo '</h2><h3>'; esc_html_e('Convert from','qevora-imageflow'); echo '</h3><div class="qif-grid">';
