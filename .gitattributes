@@ -1,0 +1,4 @@
+/dist export-ignore
+/.github export-ignore
+/.gitattributes export-ignore
+/tests/*.cjs export-ignore
