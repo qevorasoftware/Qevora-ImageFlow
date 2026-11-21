@@ -1,6 +1,6 @@
 # Qevora ImageFlow
 
-A WordPress plugin by Qevora Software. Version 1.4.0 is packaged for staging validation. See [acceptance results](tests/acceptance.md) for release coverage.
+A WordPress plugin by Qevora Software. Version 1.4.1 is packaged for staging validation. See [acceptance results](tests/acceptance.md) for release coverage.
 
 Open **Qevora ImageFlow → Documentation** for the complete [user guide](docs/guide.html), including AI origin labels for images and videos, sample conversions, template trials, size advice, budgets, conversion rules, first-load delivery, the page inspector, request comparison, single-size repair, template baselines, and restore review.
 

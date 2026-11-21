@@ -11,7 +11,7 @@ add_action('admin_menu',function () {
 });
 add_action('admin_enqueue_scripts',function () {
     if (strpos(get_current_screen()->id,'qif-')===false) { return; }
-    wp_enqueue_style('qif-admin',QIF_URL.'assets/admin.css',array(),'1.3.0');
+    wp_enqueue_style('qif-admin',QIF_URL.'assets/admin.css',array(),'1.4.1');
     wp_enqueue_script('qif-admin',QIF_URL.'assets/admin.js',array(),'1.3.0',true);
     wp_enqueue_script('qif-workbench',QIF_URL.'assets/workbench.js',array('qif-admin'),'1.3.0',true);
     wp_localize_script('qif-admin','qifAdmin',array('nonce'=>wp_create_nonce('qif_admin')));
@@ -159,9 +159,9 @@ function stats($meta) {
 function page() {
     global $plugin_page;
     $key=substr(sanitize_key((string)$plugin_page),4);
-    echo '<div class="wrap qif"><header class="qif-brand"><img class="qif-brand-mark" src="'.esc_url(QIF_URL.'assets/qevora-mark.png').'" alt=""><div class="qif-brand-type"><span>Qevora Software</span><h1>ImageFlow</h1></div></header><nav>';
+    echo '<div class="wrap qif"><header class="qif-brand"><img class="qif-brand-mark" src="'.esc_url(QIF_URL.'assets/qevora-mark.png').'" alt=""><div class="qif-brand-type"><span>Qevora Software</span><strong class="qif-product-name">ImageFlow</strong></div></header><nav>';
     foreach (pages() as $k=>$title) { echo '<a '.($k===$key?'aria-current="page"':'').' href="'.esc_url(page_url($k)).'">'; h($title); echo '</a>'; }
-    echo '</nav><h2 class="qif-title">'; h(pages()[$key] ?? 'Dashboard'); echo '</h2>'; if ($key!=='bulk') { echo '<p role="status" id="qif-status"></p>'; }
+    echo '</nav><h1 class="qif-title">'; h(pages()[$key] ?? 'Dashboard'); echo '</h1><hr class="wp-header-end">'; if ($key!=='bulk') { echo '<p role="status" id="qif-status"></p>'; }
     if ($key==='origin') { origin_page(); } elseif ($key==='audit') { audit_panel(); } elseif ($key==='workflow') { workflow_screen(); } elseif ($key==='docs') {
         require __DIR__.'/../docs/guide.html';
     } elseif ($key==='inspector') {
